@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مشروع الطفولة المكسورة — لوحة الكفالة</title>
+
+  <!-- Bootstrap 5 (RTL) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet" />
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <!-- Leaflet + MarkerCluster -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <!-- Tajawal Arabic font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===== Loading overlay ===== -->
+  <div class="loader-overlay" id="loader">
+    <div style="text-align:center">
+      <div class="spinner"></div>
+      <p>جارٍ تحميل بيانات المشروع…</p>
+    </div>
+  </div>
+
+  <!-- ===== Top navbar ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"><i class="fa-solid fa-hand-holding-heart"></i></div>
+      <div>الطفولة المكسورة<small>لوحة متابعة الكفالة</small></div>
+    </div>
+
+    <nav class="nav-tabs-wrap" id="navTabs">
+      <button class="nav-link-btn active" data-page="dashboard"><i class="fa-solid fa-gauge-high"></i> الرئيسية</button>
+      <button class="nav-link-btn" data-page="map"><i class="fa-solid fa-map-location-dot"></i> الخريطة</button>
+      <button class="nav-link-btn" data-page="children"><i class="fa-solid fa-children"></i> بطاقات الأطفال</button>
+      <button class="nav-link-btn" data-page="logistics"><i class="fa-solid fa-truck-fast"></i> اللوجستيات</button>
+      <button class="nav-link-btn" data-page="sponsorship"><i class="fa-solid fa-hand-holding-dollar"></i> الكفالات</button>
+    </nav>
+
+    <div class="topbar-actions">
+      <span class="src-badge" id="srcBadge">وضع تجريبي</span>
+      <button class="icon-btn" id="refreshBtn" title="تحديث البيانات"><i class="fa-solid fa-rotate"></i></button>
+      <button class="icon-btn" id="themeBtn" title="تبديل الوضع"><i class="fa-solid fa-moon"></i></button>
+    </div>
+  </header>
+
+  <!-- ============================================================= -->
+  <!-- PAGE 1: DASHBOARD                                             -->
+  <!-- ============================================================= -->
+  <main class="page active" id="page-dashboard">
+    <div class="page-head"><span class="dot"></span><h2>اللوحة الرئيسية</h2></div>
+
+    <section class="kpi-grid" id="kpiGrid"><!-- filled by JS --></section>
+
+    <section class="grid-2">
+      <div class="panel"><h3><i class="fa-solid fa-venus-mars"></i> توزيع الأطفال حسب الجنس <span class="tag">Pie</span></h3><div class="chart-box"><canvas id="chGender"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-city"></i> التوزّع حسب المدن <span class="tag">Bar</span></h3><div class="chart-box"><canvas id="chCity"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-hand-holding-dollar"></i> الكفالات الشهرية (USD) <span class="tag">Line</span></h3><div class="chart-box"><canvas id="chSponsor"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-bus"></i> المواصلات الشهرية (USD) <span class="tag">Line</span></h3><div class="chart-box"><canvas id="chTransport"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-person-walking"></i> عدد الزيارات الميدانية لكل شهر <span class="tag">Column</span></h3><div class="chart-box"><canvas id="chVisits"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-gauge"></i> الزيارات مقابل الكفالات النشطة (كفاءة) <span class="tag">Mixed</span></h3><div class="chart-box"><canvas id="chEfficiency"></canvas></div></div>
+    </section>
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- PAGE 2: MAP                                                   -->
+  <!-- ============================================================= -->
+  <main class="page" id="page-map">
+    <div class="page-head"><span class="dot"></span><h2>الخريطة الجغرافية</h2></div>
+    <div class="panel">
+      <div id="map"></div>
+      <div class="map-legend">
+        <span><i class="pin" style="background:var(--male)"></i> ذكر</span>
+        <span><i class="pin" style="background:var(--female)"></i> أنثى</span>
+        <span><i class="fa-solid fa-circle-info"></i> اضغط على أي نقطة لعرض التفاصيل — مع تجميع تلقائي للنقاط المتقاربة</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- PAGE 3: CHILDREN CARDS                                        -->
+  <!-- ============================================================= -->
+  <main class="page" id="page-children">
+    <div class="page-head"><span class="dot"></span><h2>بطاقات الأطفال</h2></div>
+
+    <div class="toolbar">
+      <input type="text" id="childSearch" placeholder="🔎 بحث بالاسم أو رقم الصندوق أو المدينة…" />
+      <select id="filterGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
+      <select id="filterCity"><option value="">كل المدن</option></select>
+      <select id="filterSponsor"><option value="">كل الحالات</option><option value="on">مكفول</option><option value="off">غير مكفول</option></select>
+      <span id="childCount" class="src-badge"></span>
+    </div>
+
+    <section class="cards-grid" id="childrenGrid"></section>
+    <div class="pager" id="childrenPager"></div>
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- PAGE 4: LOGISTICS                                             -->
+  <!-- ============================================================= -->
+  <main class="page" id="page-logistics">
+    <div class="page-head"><span class="dot"></span><h2>صفحة اللوجستيات</h2></div>
+
+    <section class="mini-stats" id="logKpis"></section>
+
+    <div class="grid-2" style="margin-bottom:18px">
+      <div class="panel"><h3><i class="fa-solid fa-sack-dollar"></i> إجمالي المواصلات شهرياً</h3><div class="chart-box"><canvas id="chLogTransport"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-route"></i> الزيارات ومتوسط تكلفة الزيارة</h3><div class="chart-box"><canvas id="chLogVisits"></canvas></div></div>
+    </div>
+
+    <div class="panel">
+      <h3><i class="fa-solid fa-table-list"></i> السجل اللوجستي الشهري</h3>
+      <div class="table-wrap">
+        <table class="tbl" id="logTable">
+          <thead><tr>
+            <th>الشهر</th><th>الميداني</th><th>المنطقة</th>
+            <th>تكلفة المواصلات (USD)</th><th>عدد الزيارات</th><th>تكلفة الزيارة (USD)</th><th>ملاحظات</th>
+          </tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================= -->
+  <!-- PAGE 5: SPONSORSHIP                                           -->
+  <!-- ============================================================= -->
+  <main class="page" id="page-sponsorship">
+    <div class="page-head"><span class="dot"></span><h2>صفحة الكفالات</h2></div>
+
+    <section class="kpi-grid" id="sponsorKpis"></section>
+
+    <div class="grid-2">
+      <div class="panel"><h3><i class="fa-solid fa-chart-area"></i> صافي الكفالات بعد الحسم (شهرياً)</h3><div class="chart-box"><canvas id="chNet"></canvas></div></div>
+      <div class="panel"><h3><i class="fa-solid fa-percent"></i> نسبة تغطية الكفالة شهرياً</h3><div class="chart-box"><canvas id="chCoverage"></canvas></div></div>
+    </div>
+  </main>
+
+  <!-- ===== Export buttons (floating, dashboard scope) ===== -->
+  <div style="position:fixed;bottom:22px;inset-inline-start:22px;display:flex;gap:8px;z-index:1000">
+    <button class="btn btn-primary" id="exportPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+    <button class="btn btn-green" id="exportExcel"><i class="fa-solid fa-file-excel"></i> Excel</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== Scripts ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <!-- Export libs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
