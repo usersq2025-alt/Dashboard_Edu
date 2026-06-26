@@ -76,18 +76,25 @@ svg{display:block}
 
 /* ---- KPI ---- */
 .kpis{display:grid;gap:13px;grid-template-columns:repeat(auto-fill,minmax(186px,1fr))}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--sh);position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s}
-.kpi:hover{transform:translateY(-2px);box-shadow:var(--shl)}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--sh);position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;cursor:default}
+.kpi::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:3px;background:var(--brand);transform:scaleY(0);transform-origin:bottom;transition:transform .2s}
+.kpi:hover{transform:translateY(-3px);box-shadow:var(--shl)}
+.kpi:hover::before{transform:scaleY(1)}
+.kpi:hover .ic{transform:scale(1.08)}
+.kpi .ic{transition:transform .18s}
 .kpi .tp{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .kpi .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:1.05rem}
 .kpi .pg{font-size:.7rem;font-weight:800;padding:3px 8px;border-radius:6px}
 .kpi .v{font-size:1.75rem;font-weight:800;line-height:1;letter-spacing:-.5px}
 .kpi .l{color:var(--text2);font-size:.82rem;margin-top:6px;font-weight:700}
 .kpi .s{color:var(--text3);font-size:.72rem;margin-top:3px}
-.b-brand .ic{background:var(--brandsoft);color:var(--brand)} .b-male .ic{background:var(--malesoft);color:var(--male)}
-.b-female .ic{background:var(--femalesoft);color:var(--female)} .b-ok .ic{background:var(--oksoft);color:var(--ok)}
-.b-bad .ic{background:var(--badsoft);color:var(--bad)} .b-warn .ic{background:var(--warnsoft);color:var(--warn)}
-.b-gold .ic{background:var(--goldsoft);color:var(--gold)}
+.b-brand .ic{background:var(--brandsoft);color:var(--brand)} .b-brand::before{background:var(--brand)}
+.b-male .ic{background:var(--malesoft);color:var(--male)} .b-male::before{background:var(--male)}
+.b-female .ic{background:var(--femalesoft);color:var(--female)} .b-female::before{background:var(--female)}
+.b-ok .ic{background:var(--oksoft);color:var(--ok)} .b-ok::before{background:var(--ok)}
+.b-bad .ic{background:var(--badsoft);color:var(--bad)} .b-bad::before{background:var(--bad)}
+.b-warn .ic{background:var(--warnsoft);color:var(--warn)} .b-warn::before{background:var(--warn)}
+.b-gold .ic{background:var(--goldsoft);color:var(--gold)} .b-gold::before{background:var(--gold)}
 .pg.up{background:var(--oksoft);color:var(--ok)} .pg.dn{background:var(--badsoft);color:var(--bad)} .pg.fl{background:var(--bg2);color:var(--text3)}
 
 /* ---- grid + panels ---- */
@@ -102,6 +109,12 @@ svg{display:block}
 .svgchart text{fill:var(--text2);font-size:11px}
 .svgchart .gl{stroke:var(--line);stroke-width:1}
 .svgchart .axis{fill:var(--text3);font-size:10px}
+.svgchart rect,.svgchart path,.svgchart circle{transition:opacity .15s,filter .15s}
+.svgchart rect:hover,.svgchart path:hover{opacity:.82;filter:brightness(1.08)}
+.svgchart circle:hover{r:5}
+.hbar .hbf{transition:width .8s ease,filter .15s}
+.hbar:hover .hbf{filter:brightness(1.08)}
+.hbar:hover .hbl{color:var(--brand)}
 .chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:.8rem;color:var(--text2)}
 .chart-legend span{display:inline-flex;align-items:center;gap:6px}
 .chart-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
@@ -164,7 +177,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 /* ---- horizontal bars (HTML, reliable Arabic) ---- */
 .hbars{display:flex;flex-direction:column;gap:11px;padding:4px 0}
 .hbar{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;align-items:center;gap:12px}
-.hbl{font-size:.84rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:start}
+.hbl{font-size:.84rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:start;transition:color .15s}
 .hbt{height:22px;background:var(--bg2);border-radius:7px;overflow:hidden}
 .hbf{height:100%;border-radius:7px;transition:width .8s ease;min-width:3px}
 .hbv{font-size:.85rem;font-weight:800;color:var(--text2);min-width:26px;text-align:left}
@@ -230,13 +243,19 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
    =================================================================== */
 
 /* ---- app shell with sidebar ---- */
-.app-shell{display:flex;min-height:100vh}
-.sidebar{width:264px;flex-shrink:0;background:var(--surface);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:900}
-.sb-brand{display:flex;align-items:center;gap:11px;padding:18px 18px;border-bottom:1px solid var(--line)}
+.app-shell{display:flex;min-height:100vh;position:relative}
+.sb-overlay{position:fixed;inset:0;background:rgba(10,16,14,.45);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:.25s;z-index:950}
+.sb-overlay.show{opacity:1;visibility:visible}
+.sidebar{width:268px;flex-shrink:0;background:var(--surface);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:960;transition:margin .28s cubic-bezier(.4,0,.2,1),transform .28s cubic-bezier(.4,0,.2,1)}
+/* مطويّ على الشاشات الكبيرة: ينزلق خارجاً ويُحرّر مساحته */
+.app-shell.collapsed .sidebar{margin-inline-start:-268px}
+.sb-brand{display:flex;align-items:center;gap:11px;padding:16px 16px;border-bottom:1px solid var(--line);position:relative}
 .sb-brand .mk{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--brand);color:#fff;font-size:1.2rem;flex-shrink:0}
 .sb-brand .t{font-weight:800;font-size:1rem;line-height:1.15}.sb-brand .t small{display:block;font-weight:500;font-size:.68rem;color:var(--text3);margin-top:2px}
+.sb-close{margin-inline-start:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text2);cursor:pointer;font-size:1rem;display:none;place-items:center}
+.sb-close:hover{border-color:var(--brand);color:var(--brand)}
 .sb-label{font-size:.7rem;font-weight:800;letter-spacing:.5px;color:var(--text3);padding:16px 18px 8px}
-.sb-proj,.sb-share-label{display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;cursor:pointer;padding:11px 14px;margin:2px 10px;width:calc(100% - 20px);border-radius:11px;text-align:start;transition:.14s;font-family:inherit}
+.sb-proj,.sb-share-label{display:flex;align-items:center;gap:11px;border:0;background:transparent;cursor:pointer;padding:11px 14px;margin:2px 10px;width:calc(100% - 20px);border-radius:11px;text-align:start;transition:.14s;font-family:inherit}
 .sb-proj:hover{background:var(--bg2)}
 .sb-proj.active{background:var(--brandsoft)}
 .sb-proj.active .sb-tx b{color:var(--brand)}
@@ -250,16 +269,17 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 
 /* ---- main column ---- */
 .main-col{flex:1;min-width:0;display:flex;flex-direction:column}
-.topbar2{position:sticky;top:0;z-index:800;height:58px;display:flex;align-items:center;gap:14px;padding:0 22px;background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.topbar2 .pname{font-weight:800;font-size:1.05rem}
-.page-nav{display:flex;gap:2px;margin-inline-start:8px;overflow-x:auto;scrollbar-width:none}
+.topbar2{position:sticky;top:0;z-index:800;height:58px;display:flex;align-items:center;gap:10px;padding:0 16px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.menu-btn{flex-shrink:0;display:grid}
+.topbar2 .pname{font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.page-nav{display:flex;gap:2px;margin-inline-start:6px;overflow-x:auto;scrollbar-width:none;flex:1}
 .page-nav::-webkit-scrollbar{display:none}
 .page-nav button{border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:.88rem;padding:7px 12px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:.14s;display:inline-flex;align-items:center;gap:6px}
 .page-nav button:hover{background:var(--bg2);color:var(--text)}
 .page-nav button.active{background:var(--brand);color:#fff}
 .page-nav .bn{background:var(--bad);color:#fff;font-size:.66rem;font-weight:800;min-width:17px;height:17px;padding:0 5px;border-radius:9px;display:grid;place-items:center}
 .page-nav button.active .bn{background:rgba(255,255,255,.25)}
-.top-actions{margin-inline-start:auto;display:flex;align-items:center;gap:8px}
+.top-actions{margin-inline-start:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .proj-host{flex:1}
 
 /* ---- login screen ---- */
@@ -303,11 +323,30 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 /* ---- share-mode sidebar ---- */
 .sidebar.share-mode .sb-label{display:none}
 
-@media(max-width:860px){
-  .sidebar{position:fixed;inset-inline-start:0;top:0;transform:translateX(-100%);transition:transform .25s}
-  [dir=rtl] .sidebar{inset-inline-start:auto;inset-inline-end:0;transform:translateX(100%)}
-  .sidebar.show{transform:translateX(0)}
-  .sb-row label{min-width:auto}
+/* ---- responsive: off-canvas sidebar on small screens ---- */
+@media(max-width:980px){
+  .sidebar{position:fixed;top:0;right:0;left:auto;height:100dvh;margin-inline-start:0;transform:translateX(100%);box-shadow:var(--shl);width:min(280px,82vw)}
+  .app-shell.collapsed .sidebar{margin-inline-start:0}
+  .sidebar.open{transform:translateX(0)}
+  .sb-close{display:grid}
+}
+@media(min-width:981px){
+  .sb-overlay{display:none}
+}
+@media(max-width:600px){
+  .topbar2 .pname{max-width:120px;font-size:.92rem}
+  .page-nav button{font-size:.84rem;padding:7px 10px}
+  .src{display:none} /* الشارة تختفي على الجوال لتوفير مساحة */
+  .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .kpi .v{font-size:1.5rem}
+  .share-modal{max-height:92vh}
+  .sh-row{flex-wrap:wrap}.sh-row label{min-width:auto;width:100%}
+  .dg{grid-template-columns:1fr}.df.full{grid-column:span 1}
+  .wrap{padding:14px 12px 80px}
+}
+@media(max-width:420px){
+  .kpis{grid-template-columns:1fr 1fr}
+  .g2{grid-template-columns:1fr}
 }
 
 </style>
@@ -326,7 +365,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
     <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" />
     <div class="login-err" id="loginErr">اسم المستخدم أو كلمة المرور غير صحيحة</div>
     <button class="btn pri" type="submit" style="width:100%;justify-content:center">دخول</button>
-    <div class="login-hint">الافتراضي: <code>admin</code> / <code>admin</code> — </div>
+    <div class="login-hint">الافتراضي: <code>admin</code> / <code>admin</code> — غيّرها في الكود</div>
   </form>
 </div>
 
@@ -335,8 +374,10 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 
 <!-- ============ APP SHELL ============ -->
 <div class="app-shell" id="appShell" style="display:none">
+  <div class="sb-overlay" id="sbOverlay"></div>
   <aside class="sidebar" id="sidebar">
-    <div class="sb-brand"><div class="mk">♥</div><div class="t">منصّة المشاريع<small>إدارة إنسانية</small></div></div>
+    <div class="sb-brand"><div class="mk">♥</div><div class="t">منصّة المشاريع<small>إدارة إنسانية</small></div>
+      <button class="sb-close" id="sbClose" title="إغلاق">✕</button></div>
     <div class="sb-share-label" id="sbShareLabel" style="display:none"></div>
     <div class="sb-label" id="sbProjLabel">المشاريع</div>
     <div id="sbProjects"></div>
@@ -348,6 +389,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 
   <div class="main-col">
     <div class="topbar2">
+      <button class="ib menu-btn" id="menuBtn" title="القائمة" aria-label="القائمة"></button>
       <span class="pname" id="topProjectName">—</span>
       <nav class="page-nav" id="pageNav"></nav>
       <div class="top-actions">
@@ -451,6 +493,7 @@ const ICON={
   book:'<path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5z"/>',
   table:'<path d="M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18"/>',
   star:'<path d="M12 2l3 7h7l-5.5 4 2 7L12 17l-6.5 3 2-7L2 9h7z"/>',
+  menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',
 };
 function ic(name,cls){return `<svg class="i ${cls||''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]||''}</svg>`;}
 
@@ -1041,7 +1084,7 @@ const Platform = (function(){
      apiUrl:'https://script.google.com/macros/s/AKfycbylzfSUGEOJgF9b_0XaPawGqnh4cE6nF7myclhv6CBQsaFT8RwODC2FCSnHF0nt65jO/exec'},
     {id:'students',name:'مشروع الطلبة الجامعيين',sub:'الدعم الجامعي',icon:'cap',
      accent:'#2563a8',data:()=>EMBEDDED_STUDENTS,module:()=>StudentsProject,
-     apiUrl:'https://script.google.com/macros/s/AKfycbxEz_EJID2BGGKdLQWXxEzMUe9lzf3c3pxnaQC6V_DCdExSijjD5g-VvtC7v-dOa4mvhQ/exec'},
+     apiUrl:'https://script.google.com/macros/s/AKfycbxPaRwmbQ-ZPNFA0AY6rrgldSO8B7aQ-w69pyd6Y704XFjZV4GRsZbyIUnx6B2H1kVbKg/exec'},
   ];
 
   let currentProject=null;
@@ -1126,6 +1169,7 @@ const Platform = (function(){
     const proj=PROJECTS.find(p=>p.id===id);if(!proj)return;
     currentProject=proj;currentModule=proj.module();
     $$('#sbProjects .sb-proj').forEach(b=>b.classList.toggle('active',b.dataset.proj===id));
+    if(isMobile())closeSidebar();
     $('#topProjectName').textContent=proj.name;
     document.documentElement.style.setProperty('--brand',proj.accent);
     // حالة تحميل بسيطة داخل المضيف
@@ -1179,8 +1223,17 @@ const Platform = (function(){
     const rb=$('#refreshBtn');
     if(rb){ rb.innerHTML=ic('refresh');
       rb.onclick=async()=>{ if(!currentProject)return; delete _cache[currentProject.id]; toast('جارٍ التحديث…'); await openProject(currentProject.id); toast('تم التحديث'); }; }
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeShareModal();}});
+    const mb=$('#menuBtn'); if(mb){ mb.innerHTML=ic('menu'); mb.onclick=toggleSidebar; }
+    $('#sbClose').onclick=closeSidebar;
+    $('#sbOverlay').onclick=closeSidebar;
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeShareModal();closeSidebar();}});
   }
+  function isMobile(){return window.innerWidth<=980;}
+  function toggleSidebar(){
+    if(isMobile()){ const open=$('#sidebar').classList.toggle('open'); $('#sbOverlay').classList.toggle('show',open); }
+    else { $('#appShell').classList.toggle('collapsed'); }
+  }
+  function closeSidebar(){ $('#sidebar').classList.remove('open'); $('#sbOverlay').classList.remove('show'); }
 
   /* ============================================================
      نظام المشاركة — إنشاء رابط مقيّد
