@@ -1,1176 +1,855 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="light">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>الطفولة المكسورة — لوحة الإدارة</title>
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
-  <style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>الطفولة المكسورة — لوحة الإدارة</title>
+<style>
 /* ===================================================================
-   مشروع الطفولة المكسورة — لوحة الإدارة (Production)
-   هوية بصرية: غرفة تحكّم إنسانية — جادّة، كثيفة بالبيانات، عربية أولاً
+   الطفولة المكسورة — لوحة الإدارة التنفيذية (مستقلّة بالكامل، بلا إنترنت)
    =================================================================== */
-
-:root {
-  /* ---- Palette: ink + parchment + signal colors ---- */
-  --ink: #14201c;          /* نص أساسي داكن مخضرّ */
-  --bg: #f3f1ea;           /* ورقي دافئ */
-  --bg-2: #ece9df;
-  --surface: #ffffff;
-  --surface-2: #faf9f4;
-  --line: #ddd8c9;
-  --line-soft: #e8e4d7;
-
-  --text: #14201c;
-  --text-2: #5d6660;
-  --text-3: #8b9189;
-
-  --brand: #0f6b54;        /* أخضر إغاثي عميق */
-  --brand-2: #128a6c;
-  --brand-soft: #e2efe9;
-
-  --gold: #b07d2b;         /* لون توقيع: ذهب ترابي */
-  --gold-soft: #f4ead6;
-
-  --male: #2563a8;
-  --male-soft: #e2ecf6;
-  --female: #b8417f;
-  --female-soft: #f7e4ef;
-
-  --ok: #1f8a4c;   --ok-soft: #e0f0e4;
-  --warn: #c2820f; --warn-soft: #f8eed2;
-  --bad: #c0392b;  --bad-soft: #f8e3df;
-
-  --radius: 14px;
-  --radius-sm: 9px;
-  --shadow: 0 1px 2px rgba(20,32,28,.06), 0 4px 18px rgba(20,32,28,.05);
-  --shadow-lg: 0 8px 34px rgba(20,32,28,.14);
-  --nav-h: 60px;
-
-  --font: "IBM Plex Sans Arabic", "Tajawal", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
+:root{
+  --ink:#16211d; --bg:#f4f2ec; --bg2:#ece9e0; --surface:#fff; --surface2:#faf8f3;
+  --line:#e0dccf; --line2:#eceae0;
+  --text:#16211d; --text2:#5e6760; --text3:#949a91;
+  --brand:#0f6b54; --brand2:#13967340; --brand2:#149673; --brandsoft:#e3efe9;
+  --gold:#b07d2b; --goldsoft:#f5ecd9;
+  --male:#2563a8; --malesoft:#e4edf7; --female:#bd4a86; --femalesoft:#f8e6f0;
+  --ok:#1c854a; --oksoft:#e1f0e6; --warn:#bd8211; --warnsoft:#f8efd5; --bad:#c0392b; --badsoft:#f8e4e0;
+  --r:14px; --r2:9px;
+  --sh:0 1px 2px rgba(20,32,28,.05),0 4px 16px rgba(20,32,28,.05);
+  --shl:0 10px 36px rgba(20,32,28,.13);
+  --f:'Segoe UI','Tahoma',system-ui,sans-serif; --fnum:'Segoe UI',system-ui,sans-serif;
+  --nav:60px;
 }
-
-[data-theme="dark"] {
-  --ink: #e8ede9;
-  --bg: #0e1512;
-  --bg-2: #121b17;
-  --surface: #16201b;
-  --surface-2: #1a261f;
-  --line: #29362f;
-  --line-soft: #202c25;
-
-  --text: #e8ede9;
-  --text-2: #9faba3;
-  --text-3: #6b766f;
-
-  --brand: #2bbd92;
-  --brand-2: #34d3a4;
-  --brand-soft: #122b23;
-
-  --gold: #dcab52;
-  --gold-soft: #2a2113;
-
-  --male: #5b9be8; --male-soft: #15243a;
-  --female: #e576b0; --female-soft: #341a2a;
-
-  --ok: #34d37e; --ok-soft: #0f2a1b;
-  --warn: #e6b545; --warn-soft: #2c2410;
-  --bad: #ef6b5c; --bad-soft: #2e1714;
-
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 22px rgba(0,0,0,.4);
-  --shadow-lg: 0 12px 40px rgba(0,0,0,.55);
+[data-theme=dark]{
+  --ink:#e9eee9; --bg:#0e1512; --bg2:#121b16; --surface:#16201b; --surface2:#1b271f;
+  --line:#28342c; --line2:#202b24;
+  --text:#e9eee9; --text2:#9faaa1; --text3:#6a756d;
+  --brand:#2bbd92; --brand2:#34d3a4; --brandsoft:#10271f;
+  --gold:#dcab52; --goldsoft:#2a2113;
+  --male:#5b9be8; --malesoft:#152339; --female:#e576b0; --femalesoft:#321a29;
+  --ok:#33d07c; --oksoft:#0f2a1a; --warn:#e6b545; --warnsoft:#2b2410; --bad:#ef6b5c; --badsoft:#2d1714;
+  --sh:0 1px 2px rgba(0,0,0,.4),0 6px 22px rgba(0,0,0,.4); --shl:0 12px 40px rgba(0,0,0,.55);
 }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--f);direction:rtl;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+a{color:var(--brand);text-decoration:none}
+::selection{background:var(--brand);color:#fff}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+svg{display:block}
 
-* { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
-  background: var(--bg); color: var(--text);
-  font-family: var(--font); direction: rtl;
-  -webkit-font-smoothing: antialiased; scroll-behavior: smooth;
-  transition: background .3s, color .3s;
-}
-a { color: var(--brand); text-decoration: none; }
-::selection { background: var(--brand); color: #fff; }
-.mono { font-family: var(--mono); font-feature-settings: "tnum"; letter-spacing: -.2px; }
+/* ---- icons (inline svg sizing) ---- */
+.i{width:1em;height:1em;display:inline-block;vertical-align:-.12em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-/* ---------- Top bar ---------- */
-.topbar {
-  position: sticky; top: 0; z-index: 1200; height: var(--nav-h);
-  display: flex; align-items: center; gap: 16px; padding: 0 20px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(10px); border-bottom: 1px solid var(--line);
-}
-.brand { display: flex; align-items: center; gap: 11px; white-space: nowrap; }
-.brand .mark {
-  width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
-  background: var(--brand); color: #fff; font-size: 1.15rem;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
-}
-.brand .t { font-weight: 700; font-size: 1.02rem; line-height: 1.1; }
-.brand .t small { display: block; font-weight: 500; font-size: .68rem; color: var(--text-3); margin-top: 2px; }
+/* ---- topbar ---- */
+.topbar{position:sticky;top:0;z-index:1200;height:var(--nav);display:flex;align-items:center;gap:16px;padding:0 20px;background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px;white-space:nowrap}
+.brand .mk{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--brand);color:#fff;font-size:1.1rem}
+.brand .t{font-weight:800;font-size:1.02rem;line-height:1.1}
+.brand .t small{display:block;font-weight:500;font-size:.67rem;color:var(--text3);margin-top:2px}
+.nav{display:flex;gap:2px;margin-inline-start:8px;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav button{border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:.9rem;padding:8px 13px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:.14s;display:inline-flex;align-items:center;gap:7px}
+.nav button:hover{background:var(--bg2);color:var(--text)}
+.nav button.active{background:var(--brand);color:#fff}
+.nav .bn{background:var(--bad);color:#fff;font-size:.67rem;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:9px;display:grid;place-items:center}
+.nav button.active .bn{background:rgba(255,255,255,.25)}
+.tbr{margin-inline-start:auto;display:flex;align-items:center;gap:8px}
+.src{font-size:.7rem;font-weight:700;padding:5px 10px;border-radius:7px;background:var(--goldsoft);color:var(--gold);display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.src.live{background:var(--oksoft);color:var(--ok)}
+.ib{width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--text);cursor:pointer;display:grid;place-items:center;transition:.14s;font-size:1.05rem}
+.ib:hover{border-color:var(--brand);color:var(--brand)}
 
-.nav { display: flex; gap: 2px; margin-inline-start: 8px; overflow-x: auto; scrollbar-width: none; }
-.nav::-webkit-scrollbar { display: none; }
-.nav button {
-  border: 0; background: transparent; color: var(--text-2); font-family: inherit;
-  font-weight: 600; font-size: .9rem; padding: 8px 13px; border-radius: 9px;
-  cursor: pointer; white-space: nowrap; transition: .14s; display: inline-flex; align-items: center; gap: 7px;
-}
-.nav button:hover { background: var(--bg-2); color: var(--text); }
-.nav button.active { background: var(--brand); color: #fff; }
-.nav button .badge-n {
-  background: var(--bad); color: #fff; font-size: .68rem; font-weight: 700;
-  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center;
-}
-.nav button.active .badge-n { background: rgba(255,255,255,.25); }
+/* ---- shell ---- */
+.wrap{max-width:1480px;margin:0 auto;padding:22px 20px 90px}
+.page{display:none;animation:in .3s ease}
+.page.active{display:block}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.phead{display:flex;align-items:flex-end;gap:14px;margin:4px 2px 20px;flex-wrap:wrap}
+.phead .eb{font-size:.7rem;font-weight:800;letter-spacing:1px;color:var(--gold);margin-bottom:5px}
+.phead h1{margin:0;font-size:1.5rem;font-weight:800;letter-spacing:-.3px}
+.phead .meta{margin-inline-start:auto;font-size:.8rem;color:var(--text3)}
+.slabel{display:flex;align-items:center;gap:9px;margin:26px 2px 14px;font-size:.84rem;font-weight:800;color:var(--text2)}
+.slabel::before{content:"";width:3px;height:15px;background:var(--gold);border-radius:2px}
+.slabel .hint{margin-inline-start:auto;font-weight:500;color:var(--text3);font-size:.76rem}
 
-.tb-right { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
-.src {
-  font-size: .7rem; font-weight: 700; padding: 5px 10px; border-radius: 7px;
-  background: var(--gold-soft); color: var(--gold); display: inline-flex; gap: 5px; align-items: center;
-}
-.src.live { background: var(--ok-soft); color: var(--ok); }
-.ibtn {
-  width: 38px; height: 38px; border-radius: 9px; border: 1px solid var(--line);
-  background: var(--surface); color: var(--text); cursor: pointer; font-size: 1rem;
-  display: grid; place-items: center; transition: .14s;
-}
-.ibtn:hover { border-color: var(--brand); color: var(--brand); }
+/* ---- KPI ---- */
+.kpis{display:grid;gap:13px;grid-template-columns:repeat(auto-fill,minmax(186px,1fr))}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--sh);position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--shl)}
+.kpi .tp{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.kpi .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:1.05rem}
+.kpi .pg{font-size:.7rem;font-weight:800;padding:3px 8px;border-radius:6px}
+.kpi .v{font-size:1.75rem;font-weight:800;line-height:1;letter-spacing:-.5px}
+.kpi .l{color:var(--text2);font-size:.82rem;margin-top:6px;font-weight:700}
+.kpi .s{color:var(--text3);font-size:.72rem;margin-top:3px}
+.b-brand .ic{background:var(--brandsoft);color:var(--brand)} .b-male .ic{background:var(--malesoft);color:var(--male)}
+.b-female .ic{background:var(--femalesoft);color:var(--female)} .b-ok .ic{background:var(--oksoft);color:var(--ok)}
+.b-bad .ic{background:var(--badsoft);color:var(--bad)} .b-warn .ic{background:var(--warnsoft);color:var(--warn)}
+.b-gold .ic{background:var(--goldsoft);color:var(--gold)}
+.pg.up{background:var(--oksoft);color:var(--ok)} .pg.dn{background:var(--badsoft);color:var(--bad)} .pg.fl{background:var(--bg2);color:var(--text3)}
 
-/* ---------- Page shell ---------- */
-.wrap { max-width: 1480px; margin: 0 auto; padding: 22px 20px 80px; }
-.page { display: none; animation: in .3s ease; }
-.page.active { display: block; }
-@keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* ---- grid + panels ---- */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
+.panel>h3{margin:0 0 16px;font-size:.96rem;font-weight:800;display:flex;align-items:center;gap:8px}
+.panel>h3 .tag{margin-inline-start:auto;font-size:.68rem;font-weight:700;color:var(--text3);background:var(--bg2);padding:3px 9px;border-radius:6px}
 
-.phead { display: flex; align-items: flex-end; gap: 14px; margin: 4px 2px 20px; flex-wrap: wrap; }
-.phead .eyebrow { font-size: .72rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; margin-bottom: 4px; }
-.phead h1 { margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -.3px; }
-.phead .meta { margin-inline-start: auto; font-size: .8rem; color: var(--text-3); }
+/* ---- SVG chart helpers ---- */
+.svgchart{width:100%;height:auto;overflow:visible;font-family:var(--f)}
+.svgchart text{fill:var(--text2);font-size:11px}
+.svgchart .gl{stroke:var(--line);stroke-width:1}
+.svgchart .axis{fill:var(--text3);font-size:10px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:.8rem;color:var(--text2)}
+.chart-legend span{display:inline-flex;align-items:center;gap:6px}
+.chart-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
 
-/* ---------- Section label ---------- */
-.slabel {
-  display: flex; align-items: center; gap: 9px; margin: 26px 2px 14px;
-  font-size: .82rem; font-weight: 700; color: var(--text-2); letter-spacing: .3px;
-}
-.slabel::before { content: ""; width: 3px; height: 15px; background: var(--gold); border-radius: 2px; }
-.slabel .hint { margin-inline-start: auto; font-weight: 500; color: var(--text-3); font-size: .76rem; }
+/* ---- alert banner / list ---- */
+.alertbar{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--r);background:linear-gradient(100deg,var(--badsoft),color-mix(in srgb,var(--badsoft) 45%,var(--surface)));border:1px solid color-mix(in srgb,var(--bad) 28%,var(--line));margin-bottom:18px}
+.alertbar .big{font-size:2rem;font-weight:800;color:var(--bad);line-height:1}
+.alertbar .tx{flex:1}.alertbar .tx b{font-size:1.02rem}.alertbar .tx p{margin:3px 0 0;color:var(--text2);font-size:.85rem}
+.alist{display:flex;flex-direction:column;gap:1px;background:var(--line2);border-radius:var(--r);overflow:hidden;border:1px solid var(--line)}
+.arow{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;background:var(--surface);padding:12px 15px;transition:.12s}
+.arow:hover{background:var(--surface2)}
+.arow .bx{font-weight:800;font-size:.82rem;background:var(--bg2);padding:4px 9px;border-radius:7px;color:var(--text2)}
+.arow .wh b{font-size:.92rem}.arow .wh span{display:block;font-size:.76rem;color:var(--text3);margin-top:2px}
+.arow .stk{font-size:.76rem;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.stk.s1{background:var(--warnsoft);color:var(--warn)} .stk.s2{background:var(--badsoft);color:var(--bad)}
+.arow .go{border:1px solid var(--line);background:var(--surface);color:var(--text2);width:32px;height:32px;border-radius:8px;cursor:pointer;display:grid;place-items:center;transition:.12s}
+.arow .go:hover{border-color:var(--brand);color:var(--brand)}
 
-/* ---------- KPI row ---------- */
-.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); }
-.kpi {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 15px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden;
-  transition: transform .15s, box-shadow .15s;
-}
-.kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-.kpi .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
-.kpi .ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-size: 1rem; }
-.kpi .trend { font-size: .72rem; font-weight: 700; padding: 3px 7px; border-radius: 6px; }
-.kpi .val { font-size: 1.7rem; font-weight: 700; line-height: 1; letter-spacing: -.5px; font-family: var(--mono); font-feature-settings: "tnum"; }
-.kpi .lbl { color: var(--text-2); font-size: .82rem; margin-top: 5px; font-weight: 600; }
-.kpi .sub { color: var(--text-3); font-size: .72rem; margin-top: 3px; }
-.t-brand .ic { background: var(--brand-soft); color: var(--brand); }
-.t-male  .ic { background: var(--male-soft); color: var(--male); }
-.t-female .ic { background: var(--female-soft); color: var(--female); }
-.t-ok    .ic { background: var(--ok-soft); color: var(--ok); }
-.t-bad   .ic { background: var(--bad-soft); color: var(--bad); }
-.t-warn  .ic { background: var(--warn-soft); color: var(--warn); }
-.t-gold  .ic { background: var(--gold-soft); color: var(--gold); }
-.trend.up { background: var(--ok-soft); color: var(--ok); }
-.trend.down { background: var(--bad-soft); color: var(--bad); }
-.trend.flat { background: var(--bg-2); color: var(--text-3); }
+/* ---- toolbar ---- */
+.toolbar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:16px}
+.toolbar input,.toolbar select{font-family:inherit;font-size:.88rem;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);color:var(--text);outline:none;transition:.14s}
+.toolbar input{flex:1;min-width:200px}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brandsoft)}
+.cnt{font-size:.78rem;font-weight:800;color:var(--text2);background:var(--bg2);padding:7px 12px;border-radius:8px}
+.btn{font-family:inherit;font-weight:800;font-size:.85rem;cursor:pointer;padding:9px 14px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface);color:var(--text);transition:.14s;display:inline-flex;gap:7px;align-items:center}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.pri{background:var(--brand);color:#fff;border-color:var(--brand)} .btn.pri:hover{background:var(--brand2);color:#fff}
+.btn.gold{background:var(--gold);color:#fff;border-color:var(--gold)} .btn.gold:hover{filter:brightness(1.06);color:#fff}
 
-/* ---------- Grid + panels ---------- */
-.grid { display: grid; gap: 16px; }
-.g-2 { grid-template-columns: repeat(auto-fit, minmax(360px,1fr)); }
-.g-3 { grid-template-columns: repeat(auto-fit, minmax(290px,1fr)); }
-.span-2 { grid-column: span 2; }
-@media (max-width: 800px){ .span-2 { grid-column: span 1; } }
+/* ---- cards ---- */
+.cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(248px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;overflow:hidden}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shl);border-color:var(--brand)}
+.card .hd{padding:14px 15px 0;display:flex;gap:12px;align-items:center}
+.card .av{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:1.2rem;font-weight:800;flex-shrink:0}
+.card.m .av{background:var(--malesoft);color:var(--male)} .card.f .av{background:var(--femalesoft);color:var(--female)}
+.card .ht{min-width:0}.card .ht b{font-size:.96rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card .ht span{font-size:.76rem;color:var(--text3)}
+.card .bd{padding:12px 15px 15px}
+.card .rw{display:flex;justify-content:space-between;font-size:.8rem;padding:4px 0;color:var(--text2)}.card .rw b{color:var(--text);font-weight:700}
+.card .ft{margin-top:10px;padding-top:11px;border-top:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center}
+.dt{font-size:.72rem;font-weight:700;color:var(--text3)}
+.chip{font-size:.7rem;font-weight:800;padding:4px 10px;border-radius:20px;display:inline-flex;gap:5px;align-items:center}
+.chip.ok{background:var(--oksoft);color:var(--ok)} .chip.warn{background:var(--warnsoft);color:var(--warn)} .chip.bad{background:var(--badsoft);color:var(--bad)} .chip.mute{background:var(--bg2);color:var(--text3)}
+.strip{display:flex;gap:2px;margin-top:10px}.strip i{flex:1;height:6px;border-radius:2px;background:var(--line)}.strip i.p{background:var(--ok)}.strip i.x{background:var(--bad);opacity:.55}
 
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 17px; box-shadow: var(--shadow); }
-.panel > h3 { margin: 0 0 14px; font-size: .96rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-.panel > h3 .tag { margin-inline-start: auto; font-size: .68rem; font-weight: 600; color: var(--text-3); background: var(--bg-2); padding: 3px 8px; border-radius: 6px; }
-.chart { position: relative; height: 280px; }
-.chart.tall { height: 330px; }
+/* ---- pager ---- */
+.pager{display:flex;justify-content:center;gap:5px;margin-top:22px;flex-wrap:wrap}
+.pager button{min-width:36px;height:36px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;cursor:pointer;font-family:inherit;font-weight:800;transition:.12s}
+.pager button:hover:not(:disabled){border-color:var(--brand);color:var(--brand)} .pager button.active{background:var(--brand);color:#fff;border-color:var(--brand)} .pager button:disabled{opacity:.35;cursor:default}
 
-/* ---------- Alert banner / list ---------- */
-.alertbar {
-  display: flex; align-items: center; gap: 14px; padding: 15px 18px; border-radius: var(--radius);
-  background: linear-gradient(100deg, var(--bad-soft), color-mix(in srgb, var(--bad-soft) 50%, var(--surface)));
-  border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--line)); margin-bottom: 18px;
-}
-.alertbar .big { font-size: 2rem; font-weight: 700; color: var(--bad); font-family: var(--mono); line-height: 1; }
-.alertbar .txt { flex: 1; }
-.alertbar .txt b { font-size: 1rem; }
-.alertbar .txt p { margin: 3px 0 0; color: var(--text-2); font-size: .85rem; }
+/* ---- table ---- */
+.tw{overflow-x:auto;border-radius:var(--r);border:1px solid var(--line)}
+table.t{width:100%;border-collapse:collapse;background:var(--surface);font-size:.87rem}
+table.t thead th{background:var(--surface2);text-align:right;padding:12px 14px;font-weight:800;color:var(--text2);border-bottom:1px solid var(--line);white-space:nowrap}
+table.t tbody td{padding:11px 14px;border-bottom:1px solid var(--line2)}
+table.t tbody tr:last-child td{border-bottom:0}
+table.t tbody tr:hover{background:var(--surface2)}
+table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);border-top:2px solid var(--line)}
 
-.alist { display: flex; flex-direction: column; gap: 1px; background: var(--line-soft); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
-.arow {
-  display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px;
-  background: var(--surface); padding: 12px 15px; transition: .12s;
-}
-.arow:hover { background: var(--surface-2); }
-.arow .tag-box { font-family: var(--mono); font-weight: 700; font-size: .82rem; background: var(--bg-2); padding: 4px 9px; border-radius: 7px; color: var(--text-2); }
-.arow .who b { font-size: .92rem; }
-.arow .who span { display: block; font-size: .76rem; color: var(--text-3); margin-top: 2px; }
-.arow .streak { font-size: .76rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
-.streak.s1 { background: var(--warn-soft); color: var(--warn); }
-.streak.s2 { background: var(--bad-soft); color: var(--bad); }
-.arow .go { border: 1px solid var(--line); background: var(--surface); color: var(--text-2); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: grid; place-items: center; transition: .12s; }
-.arow .go:hover { border-color: var(--brand); color: var(--brand); }
+/* ---- worker bars ---- */
+.wbar{display:grid;grid-template-columns:130px 1fr auto;align-items:center;gap:12px;padding:9px 0}
+.wbar .nm{font-weight:700;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wbar .tk{height:10px;background:var(--bg2);border-radius:6px;overflow:hidden}
+.wbar .fl{height:100%;background:linear-gradient(90deg,var(--brand),var(--brand2));border-radius:6px;transition:width .8s ease}
+.wbar .v{font-weight:800;font-size:.84rem;min-width:38px;text-align:left}
 
-/* ---------- Toolbar ---------- */
-.toolbar { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; margin-bottom: 16px; }
-.toolbar input, .toolbar select {
-  font-family: inherit; font-size: .88rem; padding: 9px 12px; border: 1px solid var(--line);
-  border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; transition: .14s;
-}
-.toolbar input { flex: 1; min-width: 200px; }
-.toolbar input:focus, .toolbar select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-.count { font-size: .78rem; font-weight: 700; color: var(--text-2); background: var(--bg-2); padding: 7px 12px; border-radius: 8px; }
+/* ---- city/geo bars (offline map replacement) ---- */
+.geo{display:flex;flex-direction:column;gap:10px}
+.georow{display:grid;grid-template-columns:160px 1fr auto;align-items:center;gap:12px}
+.georow .cn{font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.georow .gt{height:22px;background:var(--bg2);border-radius:7px;overflow:hidden;display:flex}
+.georow .gm{background:var(--male)}.georow .gf{background:var(--female)}
+.georow .gv{font-weight:800;font-size:.85rem;min-width:30px;text-align:left}
 
-.btn { font-family: inherit; font-weight: 700; font-size: .85rem; cursor: pointer; padding: 9px 14px;
-  border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--surface); color: var(--text);
-  transition: .14s; display: inline-flex; gap: 7px; align-items: center; }
-.btn:hover { border-color: var(--brand); color: var(--brand); }
-.btn.pri { background: var(--brand); color: #fff; border-color: var(--brand); }
-.btn.pri:hover { background: var(--brand-2); color: #fff; }
-.btn.gold { background: var(--gold); color: #fff; border-color: var(--gold); }
-.btn.gold:hover { filter: brightness(1.06); color: #fff; }
+/* ---- drawer ---- */
+.dbg{position:fixed;inset:0;background:rgba(10,16,14,.5);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:1400}
+.dbg.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;inset-inline-end:0;height:100%;width:min(520px,94vw);background:var(--bg);box-shadow:var(--shl);transform:translateX(104%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:1500;overflow-y:auto}
+.drawer.open{transform:translateX(0)}
+.dh{padding:22px;background:var(--brand);color:#fff;position:relative}
+.dh.f{background:var(--female)}
+.dh .cl{position:absolute;top:16px;inset-inline-start:16px;width:34px;height:34px;border-radius:9px;border:0;background:rgba(255,255,255,.18);color:#fff;cursor:pointer;font-size:1.2rem;display:grid;place-items:center}
+.dh .avl{width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:1.8rem;font-weight:800;margin-bottom:12px}
+.dh h2{margin:0;font-size:1.3rem}.dh .sb{opacity:.9;font-size:.85rem;margin-top:4px}
+.db{padding:20px 22px}
+.ds{margin-bottom:22px}
+.ds h4{font-size:.74rem;font-weight:800;color:var(--gold);letter-spacing:.6px;margin:0 0 11px;display:flex;align-items:center;gap:7px}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.df{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.df .k{font-size:.72rem;color:var(--text3);margin-bottom:3px}.df .vv{font-size:.9rem;font-weight:700}.df.full{grid-column:span 2}
+.dms{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.dm{text-align:center;padding:8px 4px;border-radius:8px;font-size:.72rem;font-weight:800;border:1px solid var(--line)}
+.dm.p{background:var(--oksoft);color:var(--ok);border-color:transparent}.dm.x{background:var(--badsoft);color:var(--bad);border-color:transparent}.dm.b{color:var(--text3)}
+.dm small{display:block;font-weight:500;font-size:.62rem;opacity:.8;margin-bottom:2px}
 
-/* ---------- Children cards ---------- */
-.cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(244px,1fr)); }
-.card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: var(--shadow); cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; overflow: hidden;
-}
-.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--brand); }
-.card .head { padding: 14px 15px 0; display: flex; gap: 12px; align-items: center; }
-.card .ava { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem; font-weight: 700; flex-shrink: 0; }
-.card.m .ava { background: var(--male-soft); color: var(--male); }
-.card.f .ava { background: var(--female-soft); color: var(--female); }
-.card .hd-t { min-width: 0; }
-.card .hd-t b { font-size: .96rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.card .hd-t span { font-size: .76rem; color: var(--text-3); }
-.card .body { padding: 12px 15px 15px; }
-.card .row { display: flex; justify-content: space-between; font-size: .8rem; padding: 4px 0; color: var(--text-2); }
-.card .row b { color: var(--text); font-weight: 600; }
-.card .foot { margin-top: 10px; padding-top: 11px; border-top: 1px solid var(--line-soft); display: flex; justify-content: space-between; align-items: center; }
-.dot-tag { font-family: var(--mono); font-size: .72rem; font-weight: 700; color: var(--text-3); }
+/* ---- empty ---- */
+.empty{text-align:center;padding:54px 20px;color:var(--text3)}
+.empty .ei{font-size:2.4rem;opacity:.4;margin-bottom:12px}
+.empty b{display:block;color:var(--text2);font-size:1rem;margin-bottom:6px}
+.empty p{margin:0 auto;max-width:400px;font-size:.85rem;line-height:1.6}
+.empty code{background:var(--bg2);padding:1px 7px;border-radius:5px;font-size:.82rem}
 
-.chip { font-size: .7rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; display: inline-flex; gap: 5px; align-items: center; }
-.chip.ok { background: var(--ok-soft); color: var(--ok); }
-.chip.warn { background: var(--warn-soft); color: var(--warn); }
-.chip.bad { background: var(--bad-soft); color: var(--bad); }
-.chip.mute { background: var(--bg-2); color: var(--text-3); }
+/* ---- loader / toast ---- */
+.loader{position:fixed;inset:0;background:var(--bg);z-index:3000;display:grid;place-items:center;transition:opacity .4s}
+.loader.hide{opacity:0;pointer-events:none}
+.spin{width:44px;height:44px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--brand);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loader p{margin-top:14px;color:var(--text2);font-weight:700;font-size:.9rem}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(18px);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:11px;font-weight:800;font-size:.88rem;box-shadow:var(--shl);opacity:0;pointer-events:none;transition:.3s;z-index:3200}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.fab{position:fixed;bottom:20px;inset-inline-start:20px;display:flex;gap:8px;z-index:1000}
 
-/* mini 12-month strip */
-.strip { display: flex; gap: 2px; margin-top: 10px; }
-.strip i { flex: 1; height: 6px; border-radius: 2px; background: var(--line); }
-.strip i.p { background: var(--ok); }
-.strip i.x { background: var(--bad); opacity: .6; }
-
-/* ---------- Pager ---------- */
-.pager { display: flex; justify-content: center; gap: 5px; margin-top: 22px; flex-wrap: wrap; }
-.pager button { min-width: 36px; height: 36px; border: 1px solid var(--line); background: var(--surface); color: var(--text);
-  border-radius: 8px; cursor: pointer; font-family: var(--mono); font-weight: 700; transition: .12s; }
-.pager button:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
-.pager button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
-.pager button:disabled { opacity: .35; cursor: default; }
-
-/* ---------- Table ---------- */
-.twrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--line); }
-table.t { width: 100%; border-collapse: collapse; background: var(--surface); font-size: .87rem; }
-table.t thead th { background: var(--surface-2); text-align: right; padding: 12px 14px; font-weight: 700; color: var(--text-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
-table.t tbody td { padding: 11px 14px; border-bottom: 1px solid var(--line-soft); }
-table.t tbody tr:last-child td { border-bottom: 0; }
-table.t tbody tr:hover { background: var(--surface-2); }
-table.t tfoot td { padding: 12px 14px; font-weight: 700; background: var(--surface-2); border-top: 2px solid var(--line); font-family: var(--mono); }
-.num { font-family: var(--mono); font-feature-settings: "tnum"; }
-
-/* ---------- Worker bars ---------- */
-.wbar { display: grid; grid-template-columns: 130px 1fr auto; align-items: center; gap: 12px; padding: 9px 0; }
-.wbar .nm { font-weight: 600; font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wbar .track { height: 10px; background: var(--bg-2); border-radius: 6px; overflow: hidden; }
-.wbar .fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); border-radius: 6px; transition: width .8s ease; }
-.wbar .v { font-family: var(--mono); font-weight: 700; font-size: .84rem; min-width: 38px; text-align: left; }
-
-/* ---------- Map ---------- */
-#map { height: 520px; border-radius: var(--radius); border: 1px solid var(--line); z-index: 1; }
-.legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; font-size: .82rem; color: var(--text-2); }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.pin { width: 12px; height: 12px; border-radius: 50%; }
-.leaflet-popup-content-wrapper { border-radius: 11px; }
-.leaflet-popup-content { direction: rtl; font-family: var(--font); margin: 11px 13px; }
-.pp-name { font-weight: 700; font-size: 1rem; margin-bottom: 7px; }
-.pp-row { display: flex; justify-content: space-between; gap: 16px; font-size: .82rem; padding: 2px 0; }
-.pp-row b { color: var(--text-2); font-weight: 600; }
-.pp-btn { margin-top: 9px; width: 100%; background: var(--brand); color: #fff; border: 0; padding: 7px; border-radius: 8px; cursor: pointer; font-family: inherit; font-weight: 700; font-size: .82rem; }
-
-/* ---------- Drawer (child profile) ---------- */
-.drawer-bg { position: fixed; inset: 0; background: rgba(10,16,14,.5); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: .25s; z-index: 1400; }
-.drawer-bg.open { opacity: 1; pointer-events: auto; }
-.drawer {
-  position: fixed; top: 0; inset-inline-start: 0; height: 100%; width: min(520px, 94vw);
-  background: var(--bg); box-shadow: var(--shadow-lg); transform: translateX(-104%);
-  transition: transform .3s cubic-bezier(.4,0,.2,1); z-index: 1500; overflow-y: auto;
-}
-[dir="rtl"] .drawer { inset-inline-start: auto; inset-inline-end: 0; transform: translateX(104%); }
-.drawer.open { transform: translateX(0); }
-.dr-head { padding: 22px 22px 18px; background: var(--brand); color: #fff; position: relative; }
-.dr-head.f { background: var(--female); }
-.dr-head .close { position: absolute; top: 16px; inset-inline-start: 16px; width: 34px; height: 34px; border-radius: 9px; border: 0; background: rgba(255,255,255,.18); color: #fff; cursor: pointer; font-size: 1.1rem; }
-.dr-head .ava-lg { width: 66px; height: 66px; border-radius: 16px; background: rgba(255,255,255,.2); display: grid; place-items: center; font-size: 1.9rem; font-weight: 700; margin-bottom: 12px; }
-.dr-head h2 { margin: 0; font-size: 1.3rem; }
-.dr-head .sub { opacity: .9; font-size: .85rem; margin-top: 4px; }
-.dr-body { padding: 20px 22px; }
-.dr-sec { margin-bottom: 22px; }
-.dr-sec h4 { font-size: .76rem; font-weight: 700; color: var(--gold); letter-spacing: .8px; text-transform: uppercase; margin: 0 0 11px; display: flex; align-items: center; gap: 7px; }
-.dr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
-.dr-f { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-.dr-f .k { font-size: .72rem; color: var(--text-3); margin-bottom: 3px; }
-.dr-f .v { font-size: .9rem; font-weight: 600; }
-.dr-f.full { grid-column: span 2; }
-.dr-months { display: grid; grid-template-columns: repeat(6,1fr); gap: 6px; }
-.dr-m { text-align: center; padding: 8px 4px; border-radius: 8px; font-size: .72rem; font-weight: 700; border: 1px solid var(--line); }
-.dr-m.p { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
-.dr-m.x { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
-.dr-m.b { color: var(--text-3); }
-.dr-m small { display: block; font-weight: 500; font-size: .62rem; opacity: .8; margin-bottom: 2px; }
-
-/* ---------- Empty state ---------- */
-.empty { text-align: center; padding: 54px 20px; color: var(--text-3); }
-.empty .ei { font-size: 2.6rem; opacity: .35; margin-bottom: 12px; }
-.empty b { display: block; color: var(--text-2); font-size: 1rem; margin-bottom: 6px; }
-.empty p { margin: 0 auto; max-width: 380px; font-size: .85rem; line-height: 1.6; }
-.empty code { background: var(--bg-2); padding: 1px 7px; border-radius: 5px; font-family: var(--mono); font-size: .82rem; }
-
-/* ---------- Loader / toast ---------- */
-.loader { position: fixed; inset: 0; background: var(--bg); z-index: 3000; display: grid; place-items: center; transition: opacity .4s; }
-.loader.hide { opacity: 0; pointer-events: none; }
-.spin { width: 46px; height: 46px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--brand); animation: sp 1s linear infinite; }
-@keyframes sp { to { transform: rotate(360deg); } }
-.loader p { margin-top: 14px; color: var(--text-2); font-weight: 600; font-size: .9rem; }
-.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(18px); background: var(--ink); color: var(--bg);
-  padding: 12px 20px; border-radius: 11px; font-weight: 700; font-size: .88rem; box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none; transition: .3s; z-index: 3200; }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-.fab { position: fixed; bottom: 20px; inset-inline-start: 20px; display: flex; gap: 8px; z-index: 1000; }
-
-@media (max-width: 720px) {
-  .brand .t small { display: none; }
-  .topbar { flex-wrap: wrap; height: auto; padding: 9px 13px; }
-  .nav { order: 3; width: 100%; }
-  .wrap { padding: 16px 13px 80px; }
-  .dr-grid { grid-template-columns: 1fr; }
-  .dr-f.full { grid-column: span 1; }
-}
-
-@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+@media(max-width:720px){.brand .t small{display:none}.topbar{flex-wrap:wrap;height:auto;padding:9px 13px}.nav{order:3;width:100%}.wrap{padding:16px 13px 90px}.dg{grid-template-columns:1fr}.df.full{grid-column:span 1}.georow{grid-template-columns:110px 1fr auto}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 </style>
 </head>
 <body>
 
-  <div class="loader" id="loader">
-    <div style="text-align:center">
-      <div class="spin"></div>
-      <p>جارٍ تحميل سجلّ الكفالة…</p>
-    </div>
+<div class="loader" id="loader"><div style="text-align:center"><div class="spin"></div><p>جارٍ تحميل سجلّ الكفالة…</p></div></div>
+
+<header class="topbar">
+  <div class="brand"><div class="mk">♥</div><div class="t">الطفولة المكسورة<small>لوحة إدارة الكفالة</small></div></div>
+  <nav class="nav" id="nav">
+    <button class="active" data-p="overview">النظرة العامة</button>
+    <button data-p="alerts">التنبيهات <span class="bn" id="navAlert">0</span></button>
+    <button data-p="workers">الميدانيون</button>
+    <button data-p="logistics">اللوجستيات</button>
+    <button data-p="efficiency">الكفاءة</button>
+    <button data-p="geo">التوزّع الجغرافي</button>
+    <button data-p="children">الأطفال</button>
+    <button data-p="reports">التقارير</button>
+  </nav>
+  <div class="tbr">
+    <span class="src" id="src">بيانات Excel</span>
+    <button class="ib" id="refresh" title="تحديث" aria-label="تحديث"></button>
+    <button class="ib" id="theme" title="الوضع الليلي" aria-label="الوضع الليلي"></button>
   </div>
+</header>
 
-  <!-- ===== Top bar ===== -->
-  <header class="topbar">
-    <div class="brand">
-      <div class="mark"><i class="fa-solid fa-hand-holding-heart"></i></div>
-      <div class="t">الطفولة المكسورة<small>لوحة إدارة الكفالة</small></div>
+<div class="wrap">
+
+  <section class="page active" id="p-overview">
+    <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta" id="ovMeta"></div></div>
+    <div id="ovAlert"></div>
+    <div class="slabel">مؤشرات الكفالة الفعلية</div>
+    <div class="kpis" id="ovKpis"></div>
+    <div class="slabel">التحليل البصري</div>
+    <div class="grid g2">
+      <div class="panel"><h3>تغطية الكفالة عبر الأشهر <span class="tag">مكفول / غير مكفول</span></h3><div id="chCoverage"></div></div>
+      <div class="panel"><h3>قيمة الكفالات الشهرية ($) <span class="tag">اتجاه</span></h3><div id="chMoney"></div></div>
+      <div class="panel"><h3>توزّع الأطفال على المدن <span class="tag">7 مدن</span></h3><div id="chCity"></div></div>
+      <div class="panel"><h3>التركيبة العامة <span class="tag">جنس / يُتم</span></h3><div id="chDemo"></div></div>
     </div>
-    <nav class="nav" id="nav">
-      <button class="active" data-p="overview"><i class="fa-solid fa-gauge-high"></i> النظرة العامة</button>
-      <button data-p="alerts"><i class="fa-solid fa-bell"></i> التنبيهات <span class="badge-n" id="navAlert">0</span></button>
-      <button data-p="workers"><i class="fa-solid fa-user-tie"></i> الميدانيون</button>
-      <button data-p="logistics"><i class="fa-solid fa-truck-fast"></i> اللوجستيات</button>
-      <button data-p="efficiency"><i class="fa-solid fa-gauge"></i> الكفاءة</button>
-      <button data-p="map"><i class="fa-solid fa-map-location-dot"></i> الخريطة</button>
-      <button data-p="children"><i class="fa-solid fa-children"></i> الأطفال</button>
-      <button data-p="reports"><i class="fa-solid fa-file-lines"></i> التقارير</button>
-    </nav>
-    <div class="tb-right">
-      <span class="src" id="src"><i class="fa-solid fa-database"></i> ملف Excel</span>
-      <button class="ibtn" id="refresh" title="تحديث"><i class="fa-solid fa-rotate"></i></button>
-      <button class="ibtn" id="theme" title="الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
+  </section>
+
+  <section class="page" id="p-alerts">
+    <div class="phead"><div><div class="eb">متابعة عاجلة</div><h1>تنبيهات الكفالات المتأخّرة</h1></div><div class="meta" id="alMeta"></div></div>
+    <div class="alertbar" id="alBanner"></div>
+    <div class="toolbar"><input id="alSearch" placeholder="بحث بالاسم أو رقم الصندوق…" /><select id="alStreak"><option value="">كل درجات التأخّر</option><option value="2">متأخّر شهرين فأكثر</option><option value="1">متأخّر شهر واحد</option></select></div>
+    <div class="alist" id="alList"></div>
+  </section>
+
+  <section class="page" id="p-workers">
+    <div class="phead"><div><div class="eb">الأداء الميداني</div><h1>مؤشرات أداء الميدانيين</h1></div></div>
+    <div class="kpis" id="wkKpis"></div>
+    <div class="slabel">مقارنة الأداء</div>
+    <div class="grid g2">
+      <div class="panel"><h3>عدد الأطفال لكل ميداني</h3><div id="wkLoad"></div></div>
+      <div class="panel"><h3>أشهر التبرّع المُحصّلة لكل ميداني</h3><div id="wkPaid"></div></div>
     </div>
-  </header>
+    <div class="slabel">جدول الأداء التفصيلي</div>
+    <div class="tw"><table class="t" id="wkTable"><thead><tr><th>الميداني</th><th>عدد الأطفال</th><th>مكفولون</th><th>متأخرون</th><th>أشهر التبرّع</th><th>قيمة محصّلة</th><th>التغطية</th></tr></thead><tbody></tbody></table></div>
+  </section>
 
-  <div class="wrap">
+  <section class="page" id="p-logistics">
+    <div class="phead"><div><div class="eb">المصروفات</div><h1>تحليل المصروفات اللوجستية</h1></div></div>
+    <div id="logContent"></div>
+  </section>
 
-    <!-- ============ OVERVIEW ============ -->
-    <section class="page active" id="p-overview">
-      <div class="phead">
-        <div><div class="eyebrow">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div>
-        <div class="meta" id="ovMeta"></div>
-      </div>
+  <section class="page" id="p-efficiency">
+    <div class="phead"><div><div class="eb">القياس</div><h1>تحليل الكفاءة — الزيارات مقابل الكفالات</h1></div></div>
+    <div id="effContent"></div>
+  </section>
 
-      <div id="ovAlert"></div>
+  <section class="page" id="p-geo">
+    <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الأطفال على المدن</h1></div><div class="meta">يعمل بلا إنترنت</div></div>
+    <div class="panel"><div id="geoBody"></div></div>
+  </section>
 
-      <div class="slabel">مؤشرات الكفالة الفعلية <span class="hint" id="ovCurMonth"></span></div>
-      <div class="kpis" id="ovKpis"></div>
+  <section class="page" id="p-children">
+    <div class="phead"><div><div class="eb">السجل</div><h1>بطاقات الأطفال</h1></div></div>
+    <div class="toolbar">
+      <input id="cSearch" placeholder="بحث بالاسم أو رقم الصندوق أو المدينة…" />
+      <select id="cGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
+      <select id="cCity"><option value="">كل المدن</option></select>
+      <select id="cWorker"><option value="">كل الميدانيين</option></select>
+      <select id="cStatus"><option value="">كل الحالات</option><option value="ok">مكفول حالياً</option><option value="late">متأخّر</option><option value="orphan">يتيم</option></select>
+      <span class="cnt" id="cCount"></span>
+    </div>
+    <div class="cards" id="cGrid"></div>
+    <div class="pager" id="cPager"></div>
+  </section>
 
-      <div class="slabel">التحليل البصري</div>
-      <div class="grid g-2">
-        <div class="panel"><h3><i class="fa-solid fa-chart-line"></i> تغطية الكفالة عبر الأشهر <span class="tag">مكفول / غير مكفول</span></h3><div class="chart"><canvas id="chCoverage"></canvas></div></div>
-        <div class="panel"><h3><i class="fa-solid fa-sack-dollar"></i> قيمة الكفالات الشهرية (USD) <span class="tag">من الإحصائيات</span></h3><div class="chart"><canvas id="chMoney"></canvas></div></div>
-        <div class="panel"><h3><i class="fa-solid fa-city"></i> توزّع الأطفال على المدن <span class="tag">7 مدن</span></h3><div class="chart"><canvas id="chCity"></canvas></div></div>
-        <div class="panel"><h3><i class="fa-solid fa-venus-mars"></i> التركيبة (جنس / يُتم) <span class="tag">الفئات</span></h3><div class="chart"><canvas id="chDemo"></canvas></div></div>
-      </div>
-    </section>
+  <section class="page" id="p-reports">
+    <div class="phead"><div><div class="eb">المخرجات</div><h1>التقارير الشهرية والسنوية</h1></div></div>
+    <div class="toolbar">
+      <select id="rpType"><option value="annual">تقرير سنوي شامل</option><option value="monthly">تقرير شهري</option></select>
+      <select id="rpMonth"></select>
+      <button class="btn pri" id="rpPrint">طباعة / PDF</button>
+      <button class="btn gold" id="rpCsv">تصدير CSV</button>
+    </div>
+    <div id="rpView"></div>
+  </section>
 
-    <!-- ============ ALERTS ============ -->
-    <section class="page" id="p-alerts">
-      <div class="phead"><div><div class="eyebrow">متابعة عاجلة</div><h1>تنبيهات الكفالات المتأخرة</h1></div>
-        <div class="meta" id="alMeta"></div></div>
-      <div class="alertbar" id="alBanner"></div>
-      <div class="toolbar">
-        <input id="alSearch" placeholder="🔎 بحث بالاسم أو رقم الصندوق…" />
-        <select id="alStreak"><option value="">كل درجات التأخّر</option><option value="2">متأخّر شهرين فأكثر</option><option value="1">متأخّر شهر واحد</option></select>
-      </div>
-      <div class="alist" id="alList"></div>
-    </section>
+</div>
 
-    <!-- ============ WORKERS ============ -->
-    <section class="page" id="p-workers">
-      <div class="phead"><div><div class="eyebrow">الأداء الميداني</div><h1>مؤشرات أداء الميدانيين</h1></div></div>
-      <div class="kpis" id="wkKpis"></div>
-      <div class="slabel">مقارنة الأداء</div>
-      <div class="grid g-2">
-        <div class="panel"><h3><i class="fa-solid fa-users-line"></i> عدد الأطفال لكل ميداني</h3><div id="wkLoad"></div></div>
-        <div class="panel"><h3><i class="fa-solid fa-circle-check"></i> أشهر التبرّع المُحصّلة لكل ميداني</h3><div id="wkPaid"></div></div>
-      </div>
-      <div class="slabel">جدول الأداء التفصيلي</div>
-      <div class="twrap"><table class="t" id="wkTable">
-        <thead><tr><th>الميداني</th><th>عدد الأطفال</th><th>مكفولون حالياً</th><th>متأخرون</th><th>أشهر التبرّع</th><th>قيمة محصّلة (USD)</th><th>معدّل التغطية</th></tr></thead>
-        <tbody></tbody></table></div>
-    </section>
+<div class="dbg" id="dbg"></div>
+<aside class="drawer" id="drawer"><div id="drawerContent"></div></aside>
 
-    <!-- ============ LOGISTICS ============ -->
-    <section class="page" id="p-logistics">
-      <div class="phead"><div><div class="eyebrow">المصروفات</div><h1>تحليل المصروفات اللوجستية</h1></div></div>
-      <div id="logContent"></div>
-    </section>
+<div class="fab">
+  <button class="btn pri" id="expPrint">طباعة / PDF</button>
+  <button class="btn gold" id="expCsv">تصدير CSV</button>
+</div>
+<div class="toast" id="toast"></div>
 
-    <!-- ============ EFFICIENCY ============ -->
-    <section class="page" id="p-efficiency">
-      <div class="phead"><div><div class="eyebrow">القياس</div><h1>تحليل الكفاءة — الزيارات مقابل الكفالات</h1></div></div>
-      <div id="effContent"></div>
-    </section>
-
-    <!-- ============ MAP ============ -->
-    <section class="page" id="p-map">
-      <div class="phead"><div><div class="eyebrow">التوزّع الجغرافي</div><h1>خريطة مواقع الأطفال</h1></div>
-        <div class="meta">العلامات مجمّعة تلقائياً حسب القرب</div></div>
-      <div class="panel">
-        <div id="map"></div>
-        <div class="legend">
-          <span><i class="pin" style="background:var(--male)"></i> ذكر</span>
-          <span><i class="pin" style="background:var(--female)"></i> أنثى</span>
-          <span><i class="fa-solid fa-circle-info"></i> الإحداثيات مُشتقّة من المدينة (الملف لا يحوي إحداثيات دقيقة)</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ CHILDREN ============ -->
-    <section class="page" id="p-children">
-      <div class="phead"><div><div class="eyebrow">السجل</div><h1>بطاقات الأطفال</h1></div></div>
-      <div class="toolbar">
-        <input id="cSearch" placeholder="🔎 بحث بالاسم أو رقم الصندوق أو المدينة…" />
-        <select id="cGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
-        <select id="cCity"><option value="">كل المدن</option></select>
-        <select id="cWorker"><option value="">كل الميدانيين</option></select>
-        <select id="cStatus"><option value="">كل الحالات</option><option value="ok">مكفول حالياً</option><option value="late">متأخّر</option><option value="orphan">يتيم</option></select>
-        <span class="count" id="cCount"></span>
-      </div>
-      <div class="cards" id="cGrid"></div>
-      <div class="pager" id="cPager"></div>
-    </section>
-
-    <!-- ============ REPORTS ============ -->
-    <section class="page" id="p-reports">
-      <div class="phead"><div><div class="eyebrow">المخرجات</div><h1>التقارير الشهرية والسنوية</h1></div></div>
-      <div class="toolbar">
-        <select id="rpType"><option value="annual">تقرير سنوي شامل</option><option value="monthly">تقرير شهري</option></select>
-        <select id="rpMonth"></select>
-        <button class="btn pri" id="rpPdf"><i class="fa-solid fa-file-pdf"></i> تصدير PDF</button>
-        <button class="btn gold" id="rpXlsx"><i class="fa-solid fa-file-excel"></i> تصدير Excel</button>
-      </div>
-      <div id="rpView"></div>
-    </section>
-
-  </div>
-
-  <!-- ===== Child profile drawer ===== -->
-  <div class="drawer-bg" id="drawerBg"></div>
-  <aside class="drawer" id="drawer"><div id="drawerContent"></div></aside>
-
-  <div class="fab">
-    <button class="btn pri" id="quickPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>
-    <button class="btn gold" id="quickXlsx"><i class="fa-solid fa-file-excel"></i> Excel</button>
-  </div>
-  <div class="toast" id="toast"></div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script>
+<script>
 /* ===================================================================
-   مشروع الطفولة المكسورة — app.js (Production)
-   كل المؤشرات محسوبة من بيانات Excel الفعلية. لا توجد بيانات وهمية.
-   عند غياب بيانات حقيقية (مثل السجل اللوجستي الفارغ) تُعرض حالة فارغة
-   صريحة مع إرشاد، بدل اختلاق أرقام.
+   الطفولة المكسورة — لوحة الإدارة التنفيذية
+   مستقلّة بالكامل: رسوم SVG مرسومة ذاتياً، أيقونات SVG، خطوط النظام.
+   لا تعتمد على أي مكتبة خارجية — تعمل بلا إنترنت.
+   البيانات: مدمجة من Excel، أو حيّة من Apps Script عند وضع الرابط.
    =================================================================== */
 
-/* ════════════════════════════════════════════════════════════════
-   ★★★  الصق رابط Apps Script هنا (الخطوة الوحيدة المطلوبة)  ★★★
-   ════════════════════════════════════════════════════════════════
-   • قبل وضع الرابط: يعمل الداشبورد ببيانات Excel المدمجة تلقائياً.
-   • بعد وضع الرابط: تُجلب البيانات حيّة من Google Sheets.
-   انشر Code.gs كـ Web app، وانسخ الرابط المنتهي بـ /exec هنا:      */
-const API_URL = "https://script.google.com/macros/s/AKfycbw584cShZz4lKVnWnEVPkvEEanbwoh6nfbK3QfOdf4mUfNoKfXyeUy7_muBmBcMNtTV/exec";
+/* ★★★ الصق رابط Apps Script هنا (اختياري) ★★★
+   • فارغ → بيانات Excel المدمجة.  • مملوء → بيانات حيّة من Google Sheets. */
+const API_URL = "https://script.google.com/macros/s/AKfycbzF0lDMv_3wIFSdPlQqq5-YJ9Lhlxhj93POrJmXP_cpQSnZRjT_OokSNgxg_puBIckt/exec";
 
 const EMBEDDED_DATA = {"children": [{"box": "5153", "name": "عبد الهادي محمد الابراهيم", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2013-03-28", "age": 13, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل صهريج مياه", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5153", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.78, "lng": 36.6751}, {"box": "5154", "name": "لميس اديب العلوان", "gender": "أنثى", "city": "إدلب - تلمنس - معراتا", "birthdate": "2017-01-01", "age": 9, "stage": "الابتدائية", "grade": "الثاني", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائعة بسكويت", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "352681574995.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5154", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.79435, "lng": 36.66015}, {"box": "5155", "name": "احمد عبد الفتاح المصطفى", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2011-01-01", "age": 15, "stage": "الابتدائية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل زراعي", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5155", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.7717, "lng": 36.69275}, {"box": "5157", "name": "ابراهيم خالد خير الله", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2015-01-01", "age": 11, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "مبلّط", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5157", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.79135, "lng": 36.6996}, {"box": "5158", "name": "ياسر الابراهيم", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2014-08-13", "age": 11, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل مكبس بلوك", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5158", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.8005, "lng": 36.6954}, {"box": "5159", "name": "جمال هاني خير الله", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2015-03-31", "age": 11, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل مكبس بلوك", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5159", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.78605, "lng": 36.68555}, {"box": "5160", "name": "عبد الرحمن ماجد الاحمد", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2015-01-01", "age": 11, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "مساعد كهربائي", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5160", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 4, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.79325, "lng": 36.6925}, {"box": "5161", "name": "محمد غسان خير الله", "gender": "ذكر", "city": "إدلب - تلمنس - معراتا", "birthdate": "2015-01-30", "age": 11, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائع في بسطة، وحاليًا عامل في محل تجاري", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "حسن عبد العال", "guardianPhone": "306992243325.0", "visitDate": "2025-06-10", "boxLink": "https://molhamteam.com/students/5161", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 3, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 35.80395, "lng": 36.6749}, {"box": "1870", "name": "خالد محمد النجار", "gender": "ذكر", "city": "الباب", "birthdate": "2001-01-13", "age": 25, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل بمحل بيع قطع سيارات", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5375840110.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1870", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.36695, "lng": 37.53545}, {"box": "1871", "name": "بلال محمد النجار", "gender": "ذكر", "city": "الباب", "birthdate": "2001-01-13", "age": 25, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل بمحل بيع قطع سيارات", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5375840110.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1871", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 2, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.38145, "lng": 37.53385}, {"box": "1872", "name": "يوسف محمد النجار", "gender": "ذكر", "city": "الباب", "birthdate": "2001-01-13", "age": 25, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل بمحل بيع قطع سيارات", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5375840110.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1972", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3473, "lng": 37.5112}, {"box": "1873", "name": "زياد محمد الشيخاني", "gender": "ذكر", "city": "الباب", "birthdate": "2020-01-10", "age": 6, "stage": "الإعدادية", "grade": "التاسع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل في الصناعة", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5377704204.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1873", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✗", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 1, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3939, "lng": 37.51085}, {"box": "1874", "name": "صفوان رضوان البلال", "gender": "ذكر", "city": "الباب", "birthdate": "2018-11-15", "age": 7, "stage": "الابتدائية", "grade": "الثاني", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل في الصناعة", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5013435326.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1874", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 3, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.35635, "lng": 37.51515}, {"box": "1876", "name": "محمد مصطفى المعراتي", "gender": "ذكر", "city": "الباب", "birthdate": "2025-08-10", "age": 0, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "يعمل في محل تصليح غسالات", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "9647845277645.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1876", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.36235, "lng": 37.52095}, {"box": "1877", "name": "وضاح أيمن الحسين", "gender": "ذكر", "city": "الباب", "birthdate": "2007-09-09", "age": 18, "stage": "الإعدادية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل منشرة خشب", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "79272947562.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/1877", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✗", "مايو": "✗", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 0, "unpaidStreak": 6, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3471, "lng": 37.53895}, {"box": "2055", "name": "خالد سامر النجار", "gender": "ذكر", "city": "الباب", "birthdate": "2020-08-11", "age": 5, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "يعمل في محل تصليح سيارات", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5377915222.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/2055", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✗", "مايو": "✗", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 0, "unpaidStreak": 6, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.37175, "lng": 37.54275}, {"box": "2056", "name": "عبد الله يوسف المعراتي", "gender": "ذكر", "city": "الباب", "birthdate": "2020-09-13", "age": 5, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل في الصناعة", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "306992147092.0", "visitDate": "2023-11-15", "boxLink": "https://molhamteam.com/students/2056", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.35585, "lng": 37.52775}, {"box": "4973", "name": "طيبة ياسر الصاري", "gender": "أنثى", "city": "الباب", "birthdate": "2014-01-01", "age": 12, "stage": "الابتدائية", "grade": "الثالث", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "لاتعمل", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963995613923.0", "visitDate": "2024-09-09", "boxLink": "https://molhamteam.com/students/4973", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.35835, "lng": 37.5233}, {"box": "4974", "name": "محمود بدر حمدان ملا زقزوق", "gender": "ذكر", "city": "بزاعة", "birthdate": "2014-01-01", "age": 12, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل عند  حلاق", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963992425300", "visitDate": "2024-09-11", "boxLink": "https://molhamteam.com/students/4974", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✗", "مايو": "✗", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 0, "unpaidStreak": 6, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.41905, "lng": 37.677}, {"box": "4978", "name": "عيسى محمد جمال سراقبي", "gender": "ذكر", "city": "الباب", "birthdate": "2013-01-01", "age": 13, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائع قهوة متجول", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "84837414055", "visitDate": "2024-09-12", "boxLink": "https://molhamteam.com/students/4978", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✗", "مايو": "✗", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 0, "unpaidStreak": 6, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.35885, "lng": 37.50715}, {"box": "4981", "name": "احمد غسان الكادري", "gender": "ذكر", "city": "الباب", "birthdate": "2013-04-13", "age": 13, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائع أدوات منزلية", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "12407860741", "visitDate": "2024-09-18", "boxLink": "https://molhamteam.com/students/4981", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.34505, "lng": 37.498}, {"box": "4983", "name": "توفيق أحمد أسود", "gender": "ذكر", "city": "الباب", "birthdate": "2017-04-01", "age": 9, "stage": "الابتدائية", "grade": "الثاني", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "حداد سيارات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5395497348.0", "visitDate": "2024-09-18", "boxLink": "https://molhamteam.com/students/4983", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3744, "lng": 37.49595}, {"box": "4984", "name": "كنان عماد عبو", "gender": "ذكر", "city": "الباب", "birthdate": "2010-01-01", "age": 16, "stage": "الإعدادية", "grade": "الثامن", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل مطعم", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963956738611", "visitDate": "2024-09-19", "boxLink": "https://molhamteam.com/students/4984", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.38135, "lng": 37.5382}, {"box": "4985", "name": "حسين إبراهيم الحسون", "gender": "ذكر", "city": "الباب", "birthdate": "2015-09-05", "age": 10, "stage": "الابتدائية", "grade": "الثاني", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "دهّان موبيليا", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "306938179979", "visitDate": "2024-09-19", "boxLink": "https://molhamteam.com/students/4985", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3817, "lng": 37.5355}, {"box": "4986", "name": "حسن إبراهيم الحسون", "gender": "ذكر", "city": "الباب", "birthdate": "2014-03-24", "age": 12, "stage": "الابتدائية", "grade": "الثالث", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "دهّان موبيليا", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "306938179979", "visitDate": "2024-09-19", "boxLink": "https://molhamteam.com/students/4986", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 2, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.37545, "lng": 37.5282}, {"box": "4987", "name": "أحمد محمد الشنان", "gender": "ذكر", "city": "الباب", "birthdate": "2011-01-01", "age": 15, "stage": "الابتدائية", "grade": "الرابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "دهّان موبيليا", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963940671108", "visitDate": "2024-09-19", "boxLink": "https://molhamteam.com/students/4987", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.37835, "lng": 37.5019}, {"box": "5012", "name": "محمد عبد الباسط الخرنق", "gender": "ذكر", "city": "الباب", "birthdate": "2011-04-05", "age": 15, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "نجار أبواب ونوافذ", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "964 786 292 0219", "visitDate": "2024-10-27", "boxLink": "https://molhamteam.com/students/5012", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 2, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.39095, "lng": 37.51125}, {"box": "5013", "name": "محمود محمود عابدين", "gender": "ذكر", "city": "الباب", "birthdate": "2013-01-30", "age": 13, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل منشرة أخشاب", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "46766253702", "visitDate": "2024-10-23", "boxLink": "https://molhamteam.com/students/5013", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.36785, "lng": 37.52705}, {"box": "5033", "name": "مصطفى إبراهيم مصطفى", "gender": "ذكر", "city": "بزاعة", "birthdate": "2012-04-10", "age": 14, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائع مواد غذائية وخضروات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "306992672421", "visitDate": "2024-10-30", "boxLink": "https://molhamteam.com/students/5033", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.4108, "lng": 37.66235}, {"box": "5038", "name": "محمد شعيل عزام علي", "gender": "ذكر", "city": "بزاعة", "birthdate": "2011-01-01", "age": 15, "stage": "الإعدادية", "grade": "الثامن", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل خدمات بلدية", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "18593649292", "visitDate": "2024-11-04", "boxLink": "https://molhamteam.com/students/5038", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✗", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 1, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.4111, "lng": 37.68465}, {"box": "5043", "name": "عبد الحق أحمد جنيد", "gender": "ذكر", "city": "بزاعة", "birthdate": "2012-01-03", "age": 14, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل بلاط", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "9647831225084", "visitDate": "2024-11-18", "boxLink": "https://molhamteam.com/students/5043", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3806, "lng": 37.6786}, {"box": "5045", "name": "محمد كمال حمد", "gender": "ذكر", "city": "قباسين", "birthdate": "2010-05-11", "age": 16, "stage": "الإعدادية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل خياطة", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "905350876467", "visitDate": "2024-11-18", "boxLink": "https://molhamteam.com/students/5045", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 2, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.4338, "lng": 37.6233}, {"box": "5046", "name": "محمد زكريا النجار", "gender": "ذكر", "city": "الباب", "birthdate": "2012-08-17", "age": 13, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل خرّاط", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "905364544435", "visitDate": "2024-11-18", "boxLink": "https://molhamteam.com/students/5046", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3938, "lng": 37.51845}, {"box": "5048", "name": "عبد الله أحمد إبراهيم حاج جمال", "gender": "ذكر", "city": "الباب", "birthdate": "2013-01-01", "age": 13, "stage": "الابتدائية", "grade": "الثالث", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "فني صيانة دراجات نارية", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "905347058830", "visitDate": "2024-11-26", "boxLink": "https://molhamteam.com/students/5048", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.35935, "lng": 37.53495}, {"box": "5082", "name": "إبراهيم إسماعيل العمورة", "gender": "ذكر", "city": "بزاعة", "birthdate": "2015-02-17", "age": 11, "stage": "الابتدائية", "grade": "الرابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "حداد وتصويج سيارات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "12697078944", "visitDate": "2025-02-17", "boxLink": "https://molhamteam.com/students/5082", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.40195, "lng": 37.67025}, {"box": "5144", "name": "محمد سعيد السعيد", "gender": "ذكر", "city": "بزاعة", "birthdate": "2012-01-01", "age": 14, "stage": "الإعدادية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "فني صيانة دراجات نارية", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "18583649324.0", "visitDate": "2025-09-24", "boxLink": "https://molhamteam.com/students/5144", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.4182, "lng": 37.64975}, {"box": "5145", "name": "محمد صلاح الأكشوت", "gender": "ذكر", "city": "بزاعة", "birthdate": "2015-01-02", "age": 11, "stage": "الابتدائية", "grade": "الخامس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "فني صيانة دراجات نارية", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "447494923693.0", "visitDate": "2025-09-24", "boxLink": "https://molhamteam.com/students/5145", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.39475, "lng": 37.67655}, {"box": "5146", "name": "محمود عبد الرزاق الحسن", "gender": "ذكر", "city": "بزاعة", "birthdate": "2013-12-01", "age": 12, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل خياطة", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "14188760353.0", "visitDate": "2025-09-24", "boxLink": "https://molhamteam.com/students/5146", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 5, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.41585, "lng": 37.6538}, {"box": "5147", "name": "محمد نور هاشم العلي الأكشوت", "gender": "ذكر", "city": "بزاعة", "birthdate": "2012-01-01", "age": 14, "stage": "الإعدادية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائع مواد غذائية", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "306995166312.0", "visitDate": "2025-09-24", "boxLink": "https://molhamteam.com/students/5147", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3946, "lng": 37.6427}, {"box": "5151", "name": "محمود حمدو حمدو", "gender": "ذكر", "city": "بزاعة", "birthdate": "2010-01-01", "age": 16, "stage": "الإعدادية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل مغسلة سيارات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963938191262.0", "visitDate": "2025-10-12", "boxLink": "https://molhamteam.com/students/5151", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.42135, "lng": 37.6833}, {"box": "5152", "name": "عبد الرحمن حمدو حمدو", "gender": "ذكر", "city": "بزاعة", "birthdate": "2011-01-10", "age": 15, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل مغسلة سيارات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963938191262.0", "visitDate": "2025-10-12", "boxLink": "https://molhamteam.com/students/5152", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.4028, "lng": 37.66395}, {"box": "5169", "name": "عبد الله عبد الرحمن الشهاب", "gender": "ذكر", "city": "بزاعة", "birthdate": "2014-03-04", "age": 12, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "لا يعمل/عاجز", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "447367314899", "visitDate": "2025-10-28", "boxLink": "https://molhamteam.com/students/5169", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 4, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3824, "lng": 37.6688}, {"box": "5170", "name": "محمد نور الشيخ", "gender": "ذكر", "city": "بزاعة", "birthdate": "2013-01-01", "age": 13, "stage": "الإعدادية", "grade": "السابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل تصويج سيارات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963951874221", "visitDate": "2025-10-29", "boxLink": "https://molhamteam.com/students/5170", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 3, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.4125, "lng": 37.6471}, {"box": "5171", "name": "محمد مضر عبد الله الشعبو", "gender": "ذكر", "city": "بزاعة", "birthdate": "2016-01-01", "age": 10, "stage": "الابتدائية", "grade": "الرابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "بائع مواد غذائية", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "5312315950.0", "visitDate": "2025-11-11", "boxLink": "https://molhamteam.com/students/5171", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✗", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 2, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.40135, "lng": 37.6821}, {"box": "5347", "name": "آدم مصطفى النجار", "gender": "ذكر", "city": "الباب", "birthdate": "2014-01-01", "age": 12, "stage": "الابتدائية", "grade": "السادس", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "ميكانيكي سيارات", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "963998954849", "visitDate": "2026-02-05", "boxLink": "https://molhamteam.com/students/5347", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 3, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.3778, "lng": 37.5166}, {"box": "5348", "name": "فاروق سامي عبد الله", "gender": "ذكر", "city": "بزاعة", "birthdate": "2018-09-01", "age": 7, "stage": "الابتدائية", "grade": "الثاني", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل عند حلاق", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "عبد الرزاق الأحمد", "guardianPhone": "90 535 289 38 62", "visitDate": "2026-02-05", "boxLink": "https://molhamteam.com/students/5348", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✗", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 2, "unpaidStreak": 2, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.37765, "lng": 37.6588}, {"box": "5164", "name": "عيسى شادي الصليبي", "gender": "ذكر", "city": "حمص - القصير", "birthdate": "2012-05-01", "age": 14, "stage": "الإعدادية", "grade": "الثامن", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل ميكانيك", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "خالد بكار", "guardianPhone": "995058594.0", "visitDate": "2025-10-23", "boxLink": "https://molhamteam.com/students/5164", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✗", "فبراير": "✗", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 3, "unpaidStreak": 1, "curMark": "", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 34.501, "lng": 36.60045}, {"box": "4990", "name": "علي عبدو هلال", "gender": "ذكر", "city": "كفركرمين مخيم البر k19", "birthdate": "2010-09-13", "age": 15, "stage": "الإعدادية", "grade": "الرابع", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل مكيانيك", "orphan": "لا", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "محمد رشيد", "guardianPhone": "963 965 421 773", "visitDate": "2024-09-29", "boxLink": "https://molhamteam.com/students/4990", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.2866, "lng": 37.0548}, {"box": "4998", "name": "باسل مرهف مصطو", "gender": "ذكر", "city": "دارة عزة", "birthdate": "2009-03-17", "age": 17, "stage": "الثانوية", "grade": "الثامن", "dropReason": "بسبب الحاجة إلى العمل للمساهمة في تأمين احتياجات الأسرة", "attendance": "منتظم", "prevWork": "عامل في براكة اسبريسو", "orphan": "نعم", "psych": "في تحسن", "extraNeed": "لا يوجد", "fieldWorker": "محمد رشيد", "guardianPhone": "352681611200", "visitDate": "2024-10-01", "boxLink": "https://molhamteam.com/students/4998", "sponsorDate": "", "stopDate": "", "stopReason": "", "months": {"يناير": "✓", "فبراير": "✓", "مارس": "✓", "أبريل": "✓", "مايو": "✓", "يونيو": "✓", "يوليو": "", "أغسطس": "", "سبتمبر": "", "أكتوبر": "", "نوفمبر": "", "ديسمبر": ""}, "paidMonths": 6, "unpaidStreak": 0, "curMark": "✓", "total_usd": 50.0, "discount": 0.0, "net_usd": 50.0, "lat": 36.27655, "lng": 36.83}], "stats": [{"month": "يناير", "registered": 49.0, "sponsored": 32.0, "unsponsored": 17.0, "coverage": 0.6530612245, "total_usd": 1600.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 1600.0}, {"month": "فبراير", "registered": 49.0, "sponsored": 30.0, "unsponsored": 19.0, "coverage": 0.612244898, "total_usd": 1500.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 1500.0}, {"month": "مارس", "registered": 49.0, "sponsored": 38.0, "unsponsored": 11.0, "coverage": 0.7755102041, "total_usd": 1900.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 1900.0}, {"month": "أبريل", "registered": 49.0, "sponsored": 43.0, "unsponsored": 6.0, "coverage": 0.8775510204, "total_usd": 2150.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 2150.0}, {"month": "مايو", "registered": 49.0, "sponsored": 44.0, "unsponsored": 5.0, "coverage": 0.8979591837, "total_usd": 2200.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 2200.0}, {"month": "يونيو", "registered": 49.0, "sponsored": 17.0, "unsponsored": 32.0, "coverage": 0.3469387755, "total_usd": 850.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 850.0}, {"month": "يوليو", "registered": 49.0, "sponsored": 0.0, "unsponsored": 49.0, "coverage": 0.0, "total_usd": 0.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 0.0}, {"month": "أغسطس", "registered": 49.0, "sponsored": 0.0, "unsponsored": 49.0, "coverage": 0.0, "total_usd": 0.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 0.0}, {"month": "سبتمبر", "registered": 49.0, "sponsored": 0.0, "unsponsored": 49.0, "coverage": 0.0, "total_usd": 0.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 0.0}, {"month": "أكتوبر", "registered": 49.0, "sponsored": 0.0, "unsponsored": 49.0, "coverage": 0.0, "total_usd": 0.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 0.0}, {"month": "نوفمبر", "registered": 49.0, "sponsored": 0.0, "unsponsored": 49.0, "coverage": 0.0, "total_usd": 0.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 0.0}, {"month": "ديسمبر", "registered": 49.0, "sponsored": 0.0, "unsponsored": 49.0, "coverage": 0.0, "total_usd": 0.0, "transport_usd": 0.0, "orphans": 22.0, "psych": 0.0, "extra": 0.0, "net_usd": 0.0}], "logistics": [], "months": ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"], "currentMonth": "يونيو", "currentMonthIndex": 5, "generated": "2026-06-24T20:25:54.780083", "source": "excel"};
 const PER_PAGE = 12;
-const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-const MONTH_SHORT = ['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'];
+const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const MSHORT=['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'];
+const UNIT=50;
 
-let DB = { children: [], stats: [], logistics: [], months: MONTHS, currentMonth: '', currentMonthIndex: 0 };
-let CH = {};        // chart registry
-let MAP = null, CLUSTER = null;
-let cPage = 1;
+let DB={children:[],stats:[],logistics:[],months:MONTHS,currentMonth:'',currentMonthIndex:0};
+let cPage=1;
 
-/* ------------------------------------------- helpers */
-const $  = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const n0 = v => (Number(v) || 0);
-const fmt = v => n0(v).toLocaleString('en-US');
-const usd = v => '$' + fmt(Math.round(n0(v)));
-const isMale = c => String(c.gender).includes('ذكر');
-const isOrphan = c => String(c.orphan).trim() === 'نعم';
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const n0=v=>Number(v)||0;
+const fmt=v=>n0(v).toLocaleString('en-US');
+const usd=v=>'$'+fmt(Math.round(n0(v)));
+const isMale=c=>String(c.gender).includes('ذكر');
+const isOrphan=c=>String(c.orphan).trim()==='نعم';
+const paidNow=c=>String(c.curMark).trim()==='✓';
+const isLate=c=>!paidNow(c);
+function toast(m){const t=$('#toast');if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
+/* ---------- inline SVG icons ---------- */
+const ICON={
+  gauge:'<path d="M12 14l4-4M5 18a8 8 0 1114 0z"/>',
+  bell:'<path d="M6 8a6 6 0 1112 0c0 7 3 7 3 9H3c0-2 3-2 3-9M10.5 21h3"/>',
+  users:'<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8M22 21v-2a4 4 0 00-3-3.9M16 3.1A4 4 0 0116 11"/>',
+  truck:'<path d="M1 3h15v13H1zM16 8h4l3 3v5h-7M5.5 18.5a2 2 0 100-4 2 2 0 000 4M18.5 18.5a2 2 0 100-4 2 2 0 000 4"/>',
+  map:'<path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3zM9 3v15M15 6v15"/>',
+  child:'<path d="M9 4a2 2 0 104 0 2 2 0 00-4 0M12 6v8M8 9h8M10 14l-2 6M14 14l2 6"/>',
+  file:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M9 13h6M9 17h6"/>',
+  heart:'<path d="M12 21C-2 12 4 3 12 8c8-5 14 4 0 13z"/>',
+  clock:'<path d="M12 22a10 10 0 100-20 10 10 0 000 20M12 7v5l3 2"/>',
+  money:'<path d="M2 6h20v12H2zM12 9a3 3 0 100 6 3 3 0 000-6M6 9v.01M18 15v.01"/>',
+  mars:'<path d="M10 14a5 5 0 100-10 5 5 0 000 10M13.5 6.5L20 0M15 0h5v5"/>',
+  venus:'<path d="M12 3a6 6 0 100 12 6 6 0 000-12M12 15v7M9 19h6"/>',
+  crack:'<path d="M12 21C-2 12 4 3 12 8c8-5 14 4 0 13zM12 6l-2 4 3 2-2 4"/>',
+  trend:'<path d="M3 17l6-6 4 4 8-8M21 7v6h-6"/>',
+  city:'<path d="M3 21h18M5 21V7l5-4 5 4v14M9 9v.01M9 13v.01M9 17v.01M19 21V11h-4"/>',
+  trophy:'<path d="M6 4h12v4a6 6 0 01-12 0zM6 8H3V6h3M18 8h3V6h-3M9 18h6M10 18l1-4M14 18l-1-4"/>',
+  check:'<path d="M20 6L9 17l-5-5"/>',
+  percent:'<path d="M19 5L5 19M7.5 8a1.5 1.5 0 100-3 1.5 1.5 0 000 3M16.5 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3"/>',
+  calc:'<path d="M5 2h14v20H5zM8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h4M8 18h.01M12 18h.01"/>',
+  route:'<path d="M6 19a3 3 0 100-6 3 3 0 000 6M18 11a3 3 0 100-6 3 3 0 000 6M6 13V9a3 3 0 013-3h6"/>',
+  sun:'<path d="M12 17a5 5 0 100-10 5 5 0 000 10M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+  moon:'<path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/>',
+  refresh:'<path d="M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5"/>',
+  walk:'<path d="M13 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3M9 21l2-5 2-3-1-4 4 2 2 1M11 13l-2-2-2 5"/>',
+  search:'<path d="M11 19a8 8 0 100-16 8 8 0 000 16M21 21l-4.3-4.3"/>',
+  chev:'<path d="M15 18l-6-6 6-6"/>',
+  alert:'<path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L14.4 3.9a2 2 0 00-3.4 0zM12 9v4M12 17h.01"/>',
+  id:'<path d="M3 5h18v14H3zM7 10a2 2 0 104 0 2 2 0 00-4 0M7 16c0-1.5 1.5-2 2-2s2 .5 2 2M15 9h4M15 13h4"/>',
+  cap:'<path d="M22 10L12 5 2 10l10 5 10-5zM6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>',
+  pin:'<path d="M12 22s8-4.5 8-12a8 8 0 10-16 0c0 7.5 8 12 8 12zM12 13a3 3 0 100-6 3 3 0 000 6"/>',
+  link:'<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1.5 1.5M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1.5-1.5"/>',
+  cal:'<path d="M3 5h18v16H3zM3 9h18M8 2v4M16 2v4"/>',
+};
+function ic(name,cls){return `<svg class="i ${cls||''}" viewBox="0 0 24 24" aria-hidden="true">${ICON[name]||''}</svg>`;}
 
-/* مكفول الآن = علامة الشهر الحالي ✓ ؛ متأخّر = غير ✓ في الشهر الحالي */
-const paidNow = c => String(c.curMark).trim() === '✓';
-const isLate  = c => !paidNow(c);
-
-/* ------------------------------------------- data load */
+/* ---------- data ---------- */
 function applyData(j){
-  DB.children  = j.children  || [];
-  DB.stats     = j.stats     || [];
-  DB.logistics = j.logistics || [];
-  DB.months    = j.months    || MONTHS;
-  DB.currentMonth = j.currentMonth || lastMarkedMonth();
-  DB.currentMonthIndex = (j.currentMonthIndex != null) ? j.currentMonthIndex : MONTHS.indexOf(DB.currentMonth);
+  DB.children=j.children||[];DB.stats=j.stats||[];DB.logistics=j.logistics||[];
+  DB.months=j.months||MONTHS;DB.currentMonth=j.currentMonth||lastMarked();
+  DB.currentMonthIndex=(j.currentMonthIndex!=null)?j.currentMonthIndex:MONTHS.indexOf(DB.currentMonth);
 }
+function lastMarked(){let k=0;MONTHS.forEach((m,i)=>{if(DB.children.some(c=>['✓','✗'].includes(String(c.months?.[m]).trim())))k=i;});return MONTHS[k];}
 async function load(){
-  const useApi = API_URL && !API_URL.startsWith('PUT_YOUR');
-  const s=$('#src');
-  if(!useApi){
-    applyData(EMBEDDED_DATA);
-    if(s) s.innerHTML='<i class="fa-solid fa-database"></i> بيانات مدمجة';
-    return;
-  }
+  const useApi=API_URL&&!API_URL.startsWith('PUT_YOUR');const s=$('#src');
+  if(!useApi){applyData(EMBEDDED_DATA);if(s)s.innerHTML=ic('file')+' بيانات Excel';return;}
   try{
-    const res = await fetch(API_URL);
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const j = await res.json();
-    if(j.ok===false) throw new Error(j.error||'API error');
-    applyData(j);
-    if(s){ s.innerHTML='<i class="fa-solid fa-bolt"></i> متصل مباشرة'; s.classList.add('live'); }
-  }catch(err){
-    console.error(err);
-    applyData(EMBEDDED_DATA);
-    if(s) s.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i> بيانات مدمجة (تعذّر الاتصال)';
-    toast('تعذّر الاتصال بـ Apps Script — عُرضت البيانات المدمجة');
-  }
-}
-function lastMarkedMonth(){
-  let idx=0;
-  MONTHS.forEach((m,i)=>{ if(DB.children.some(c=>['✓','✗'].includes(String(c.months?.[m]).trim()))) idx=i; });
-  return MONTHS[idx];
+    const r=await fetch(API_URL);if(!r.ok)throw 0;const j=await r.json();if(j.ok===false)throw 0;
+    applyData(j);if(s){s.innerHTML=ic('trend')+' متصل مباشرة';s.classList.add('live');}
+  }catch(e){applyData(EMBEDDED_DATA);if(s)s.innerHTML=ic('alert')+' بيانات مدمجة';toast('تعذّر الاتصال — عُرضت البيانات المدمجة');}
 }
 
-/* ------------------------------------------- shared aggregates */
+/* ---------- aggregates ---------- */
 function agg(){
-  const ch=DB.children;
-  const males=ch.filter(isMale).length;
-  const orphans=ch.filter(isOrphan).length;
-  const paid=ch.filter(paidNow).length;
-  const late=ch.filter(isLate).length;
-  // قيمة الكفالة الفعلية للشهر الحالي: 50$ لكل طفل مكفول (نمط الملف)
-  const UNIT = 50;
-  const monthValue = paid * UNIT;
-  // إجمالي سنوي محصّل = مجموع كل أشهر ✓ × الوحدة
-  const yearPaidMarks = ch.reduce((a,c)=>a+n0(c.paidMonths),0);
-  const yearValue = yearPaidMarks * UNIT;
-  return { total:ch.length, males, females:ch.length-males, orphans, paid, late,
-           coverage: ch.length? Math.round(paid/ch.length*100):0, UNIT, monthValue, yearValue, yearPaidMarks };
+  const ch=DB.children,males=ch.filter(isMale).length,orphans=ch.filter(isOrphan).length;
+  const paid=ch.filter(paidNow).length,late=ch.length-paid;
+  const yearMarks=ch.reduce((a,c)=>a+n0(c.paidMonths),0);
+  return{total:ch.length,males,females:ch.length-males,orphans,paid,late,
+    coverage:ch.length?Math.round(paid/ch.length*100):0,
+    monthValue:paid*UNIT,yearValue:yearMarks*UNIT,yearMarks};
 }
-
-/* ------------------------------------------- KPI card */
-function kpi(tone,icon,val,lbl,sub,trend){
-  const tr = trend ? `<span class="trend ${trend.dir}">${trend.txt}</span>` : '';
-  return `<div class="kpi t-${tone}">
-    <div class="top"><div class="ic"><i class="fa-solid ${icon}"></i></div>${tr}</div>
-    <div class="val" data-c="${val}">0</div>
-    <div class="lbl">${lbl}</div>${sub?`<div class="sub">${sub}</div>`:''}
-  </div>`;
-}
-function countUp(scope){
-  $$('.val[data-c]',scope).forEach(el=>{
-    const raw=el.dataset.c; const isFloat=/\./.test(raw); const target=Number(raw)||0;
-    const t0=performance.now(), dur=850;
-    (function step(now){ const p=Math.min((now-t0)/dur,1); const e=1-Math.pow(1-p,3);
-      const v=target*e; el.textContent=isFloat? v.toFixed(2): fmt(Math.round(v));
-      if(p<1) requestAnimationFrame(step); })(t0);
-  });
-}
-
-/* ------------------------------------------- chart theme */
-function ck(){ const s=getComputedStyle(document.body); const g=k=>s.getPropertyValue(k).trim();
-  return {text:g('--text'),grid:g('--line'),brand:g('--brand'),gold:g('--gold'),male:g('--male'),
-          female:g('--female'),ok:g('--ok'),bad:g('--bad'),warn:g('--warn')}; }
-function opts(c,extra={}){ return {responsive:true,maintainAspectRatio:false,
-  plugins:{legend:{labels:{color:c.text,font:{family:'IBM Plex Sans Arabic',size:12},usePointStyle:true,padding:14}}},
-  scales:{x:{ticks:{color:c.text,font:{family:'IBM Plex Sans Arabic'}},grid:{color:c.grid,display:false}},
-          y:{ticks:{color:c.text,font:{family:'IBM Plex Mono'}},grid:{color:c.grid},beginAtZero:true}},...extra}; }
-function kill(){ Object.values(CH).forEach(x=>x&&x.destroy()); CH={}; }
-/* عند تعذّر تحميل مكتبة الرسوم: استبدل كل لوحة رسم برسالة بدل تجميد الصفحة */
-function markChartsUnavailable(){
-  $$('.chart').forEach(el=>{ el.innerHTML='<div style="height:100%;display:grid;place-items:center;color:var(--text-3);font-size:.85rem;text-align:center;padding:10px">تعذّر تحميل مكتبة الرسوم<br>تحقّق من اتصال الإنترنت ثم حدّث الصفحة</div>'; });
-}
-
-/* =================================================================
-   OVERVIEW
-================================================================= */
-function buildOverview(){
-  const a=agg();
-  $('#ovMeta').innerHTML = `آخر تحديث: ${new Date().toLocaleDateString('ar-EG')} · المصدر: سجل Excel`;
-  $('#ovCurMonth').textContent = `الشهر المرجعي: ${DB.currentMonth}`;
-
-  // alert banner
-  if(a.late>0){
-    $('#ovAlert').innerHTML = `<div class="alertbar">
-      <div class="big mono">${a.late}</div>
-      <div class="txt"><b>كفالة متأخّرة تحتاج متابعة</b>
-        <p>${a.late} طفلاً غير مكفول في شهر ${DB.currentMonth} من أصل ${a.total}. افتح صفحة التنبيهات للمتابعة.</p></div>
-      <button class="btn pri" onclick="go('alerts')"><i class="fa-solid fa-arrow-left"></i> عرض التنبيهات</button>
-    </div>`;
-  } else $('#ovAlert').innerHTML='';
-
-  $('#ovKpis').innerHTML =
-    kpi('brand','fa-children',a.total,'إجمالي الأطفال','مسجّلون في السجل') +
-    kpi('ok','fa-hand-holding-heart',a.paid,`مكفولون — ${DB.currentMonth}`,`تغطية ${a.coverage}%`) +
-    kpi('bad','fa-user-clock',a.late,'متأخّرون عن الكفالة',`في شهر ${DB.currentMonth}`) +
-    kpi('gold','fa-sack-dollar',a.monthValue,'قيمة كفالة الشهر (USD)',`${a.paid} × $${a.UNIT}`) +
-    kpi('male','fa-mars',a.males,'ذكور') +
-    kpi('female','fa-venus',a.females,'إناث') +
-    kpi('warn','fa-heart-crack',a.orphans,'الأيتام',`${Math.round(a.orphans/a.total*100)}% من الأطفال`) +
-    kpi('brand','fa-money-bill-trend-up',a.yearValue,'إجمالي محصّل سنوياً (USD)',`${a.yearPaidMarks} شهر تبرّع`);
-  countUp($('#ovKpis'));
-  buildOverviewCharts();
-}
-function buildOverviewCharts(){
-  if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
-  kill(); const c=ck();
-  // coverage stacked per month
-  const paidByM = MONTHS.map(m=>DB.children.filter(x=>String(x.months?.[m]).trim()==='✓').length);
-  const crossByM = MONTHS.map(m=>DB.children.filter(x=>String(x.months?.[m]).trim()==='✗').length);
-  CH.cov=new Chart($('#chCoverage'),{type:'bar',data:{labels:MONTH_SHORT,datasets:[
-    {label:'مكفول',data:paidByM,backgroundColor:c.ok,borderRadius:5,stack:'s'},
-    {label:'غير مكفول',data:crossByM,backgroundColor:c.bad+'cc',borderRadius:5,stack:'s'}]},
-    options:opts(c,{scales:{x:{stacked:true,grid:{display:false},ticks:{color:c.text}},y:{stacked:true,grid:{color:c.grid},ticks:{color:c.text}}}})});
-
-  // money line from stats
-  CH.money=new Chart($('#chMoney'),{type:'line',data:{labels:DB.stats.map(s=>s.month),datasets:[
-    {label:'إجمالي الكفالات $',data:DB.stats.map(s=>s.total_usd),borderColor:c.brand,backgroundColor:c.brand+'22',fill:true,tension:.35,pointRadius:3,pointBackgroundColor:c.brand}]},options:opts(c)});
-
-  // city bar
-  const cc={}; DB.children.forEach(x=>cc[x.city]=(cc[x.city]||0)+1);
-  const cities=Object.keys(cc).sort((a,b)=>cc[b]-cc[a]);
-  CH.city=new Chart($('#chCity'),{type:'bar',data:{labels:cities,datasets:[{label:'أطفال',data:cities.map(k=>cc[k]),backgroundColor:c.brand,borderRadius:6}]},
-    options:opts(c,{indexAxis:'y',plugins:{legend:{display:false}}})});
-
-  // demo doughnut: male/female/orphan share
-  const a=agg();
-  CH.demo=new Chart($('#chDemo'),{type:'doughnut',data:{labels:['ذكور','إناث','منهم أيتام'],
-    datasets:[{data:[a.males,a.females,a.orphans],backgroundColor:[c.male,c.female,c.gold],borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{position:'bottom',labels:{color:c.text,font:{family:'IBM Plex Sans Arabic',size:12},usePointStyle:true,padding:14}}}}});
-}
-
-/* =================================================================
-   ALERTS
-================================================================= */
-function buildAlerts(){
-  const late=DB.children.filter(isLate).sort((a,b)=>b.unpaidStreak-a.unpaidStreak);
-  $('#navAlert').textContent=late.length;
-  $('#navAlert').style.display = late.length? 'grid':'none';
-  const s2=late.filter(c=>c.unpaidStreak>=2).length;
-  $('#alMeta').textContent=`الشهر المرجعي: ${DB.currentMonth}`;
-  $('#alBanner').innerHTML=`<div class="big mono">${late.length}</div>
-    <div class="txt"><b>كفالة متأخّرة في ${DB.currentMonth}</b>
-      <p>منهم ${s2} متأخّرون لشهرين متتاليين أو أكثر — أولوية تواصل قصوى.</p></div>`;
-  renderAlerts();
-  $('#alSearch').oninput=renderAlerts; $('#alStreak').onchange=renderAlerts;
-}
-function renderAlerts(){
-  const q=$('#alSearch').value.trim().toLowerCase(); const f=$('#alStreak').value;
-  let list=DB.children.filter(isLate);
-  if(f==='2') list=list.filter(c=>c.unpaidStreak>=2);
-  if(f==='1') list=list.filter(c=>c.unpaidStreak===1);
-  if(q) list=list.filter(c=>`${c.name} ${c.box} ${c.city}`.toLowerCase().includes(q));
-  list.sort((a,b)=>b.unpaidStreak-a.unpaidStreak);
-  const box=$('#alList');
-  if(!list.length){ box.innerHTML=`<div class="empty"><div class="ei"><i class="fa-solid fa-circle-check"></i></div><b>لا توجد كفالات متأخّرة مطابقة</b><p>كل الأطفال ضمن النطاق المحدّد مكفولون.</p></div>`; return; }
-  box.innerHTML=list.map(c=>{
-    const sc=c.unpaidStreak>=2?'s2':'s1';
-    const txt=c.unpaidStreak>=2?`متأخّر ${c.unpaidStreak} أشهر`:'متأخّر شهر';
-    return `<div class="arow">
-      <div class="tag-box">#${c.box}</div>
-      <div class="who"><b>${c.name}</b><span>${c.city} · ${c.fieldWorker||'—'}</span></div>
-      <div class="streak ${sc}">${txt}</div>
-      <button class="go" onclick="openChild('${c.box}')"><i class="fa-solid fa-chevron-left"></i></button>
-    </div>`; }).join('');
-}
-
-/* =================================================================
-   WORKERS
-================================================================= */
+function paidByMonth(){return MONTHS.map(m=>DB.children.filter(c=>String(c.months?.[m]).trim()==='✓').length);}
 function workerStats(){
   const map={};
-  DB.children.forEach(c=>{
-    const w=c.fieldWorker||'غير محدّد';
-    map[w]=map[w]||{name:w,kids:0,paidNow:0,late:0,marks:0,usd:0};
-    map[w].kids++; if(paidNow(c)) map[w].paidNow++; else map[w].late++;
-    map[w].marks+=n0(c.paidMonths); map[w].usd+=n0(c.paidMonths)*50;
-  });
+  DB.children.forEach(c=>{const w=c.fieldWorker||'غير محدّد';map[w]=map[w]||{name:w,kids:0,paidNow:0,late:0,marks:0,usd:0};
+    map[w].kids++;paidNow(c)?map[w].paidNow++:map[w].late++;map[w].marks+=n0(c.paidMonths);map[w].usd+=n0(c.paidMonths)*UNIT;});
   return Object.values(map).sort((a,b)=>b.kids-a.kids);
 }
+function cssv(k){return getComputedStyle(document.body).getPropertyValue(k).trim();}
+
+/* ============================================================
+   SVG CHART ENGINE  (self-drawn, no libraries)
+============================================================ */
+function svgBar(data,opts={}){
+  // data: [{label, value, color?}]  vertical bars
+  const W=opts.w||560,H=opts.h||260,pad={t:14,r:10,b:34,l:38};
+  const max=Math.max(1,...data.map(d=>d.value));
+  const iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  const bw=iw/data.length, barw=Math.min(opts.barw||38,bw*.62);
+  const grid=cssv('--line'),txt=cssv('--text2'),def=opts.color||cssv('--brand');
+  let g='';
+  // y gridlines (4)
+  for(let i=0;i<=4;i++){const y=pad.t+ih-(ih*i/4);const val=Math.round(max*i/4);
+    g+=`<line class="gl" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/>`;
+    g+=`<text class="axis" x="${pad.l-6}" y="${y+3}" text-anchor="end">${val}</text>`;}
+  data.forEach((d,i)=>{
+    const x=pad.l+bw*i+(bw-barw)/2;const h=ih*(d.value/max);const y=pad.t+ih-h;
+    g+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barw.toFixed(1)}" height="${Math.max(0,h).toFixed(1)}" rx="5" fill="${d.color||def}"><title>${esc(d.label)}: ${d.value}</title></rect>`;
+    if(d.value>0)g+=`<text x="${(x+barw/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-weight="700" font-size="11" fill="${txt}">${d.value}</text>`;
+    g+=`<text class="axis" x="${(pad.l+bw*i+bw/2).toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(d.label)}</text>`;
+  });
+  return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+function svgHBar(data,opts={}){
+  // horizontal bars: [{label,value,color?}]
+  const rowH=opts.rowH||34,padL=opts.padL||150,W=opts.w||560,gap=8;
+  const H=data.length*rowH+10;const max=Math.max(1,...data.map(d=>d.value));
+  const iw=W-padL-46,def=opts.color||cssv('--brand'),txt=cssv('--text2');
+  let g='';
+  data.forEach((d,i)=>{
+    const y=i*rowH+5;const bw=iw*(d.value/max);
+    g+=`<text x="${padL-8}" y="${y+rowH/2+1}" text-anchor="end" font-size="12" fill="${cssv('--text')}" font-weight="600">${esc(d.label)}</text>`;
+    g+=`<rect x="${padL}" y="${y+4}" width="${iw}" height="${rowH-gap-4}" rx="6" fill="${cssv('--bg2')}"/>`;
+    g+=`<rect x="${padL}" y="${y+4}" width="${Math.max(2,bw).toFixed(1)}" height="${rowH-gap-4}" rx="6" fill="${d.color||def}"><title>${esc(d.label)}: ${d.value}</title></rect>`;
+    g+=`<text x="${(padL+iw+8)}" y="${y+rowH/2+1}" font-size="12" font-weight="800" fill="${txt}">${d.value}</text>`;
+  });
+  return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+function svgStacked(labels,seriesA,seriesB,opts={}){
+  // two stacked series per label (paid/unpaid)
+  const W=opts.w||560,H=opts.h||260,pad={t:14,r:10,b:34,l:38};
+  const totals=labels.map((_,i)=>seriesA[i]+seriesB[i]);const max=Math.max(1,...totals);
+  const iw=W-pad.l-pad.r,ih=H-pad.t-pad.b,bw=iw/labels.length,barw=Math.min(40,bw*.6);
+  const cA=opts.colorA||cssv('--ok'),cB=opts.colorB||cssv('--bad');let g='';
+  for(let i=0;i<=4;i++){const y=pad.t+ih-(ih*i/4);g+=`<line class="gl" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/><text class="axis" x="${pad.l-6}" y="${y+3}" text-anchor="end">${Math.round(max*i/4)}</text>`;}
+  labels.forEach((lb,i)=>{
+    const x=pad.l+bw*i+(bw-barw)/2;
+    const hA=ih*(seriesA[i]/max),hB=ih*(seriesB[i]/max);
+    const yA=pad.t+ih-hA,yB=yA-hB;
+    g+=`<rect x="${x.toFixed(1)}" y="${yA.toFixed(1)}" width="${barw.toFixed(1)}" height="${hA.toFixed(1)}" rx="3" fill="${cA}"><title>${lb} مكفول: ${seriesA[i]}</title></rect>`;
+    g+=`<rect x="${x.toFixed(1)}" y="${yB.toFixed(1)}" width="${barw.toFixed(1)}" height="${hB.toFixed(1)}" rx="3" fill="${cB}" opacity=".85"><title>${lb} غير مكفول: ${seriesB[i]}</title></rect>`;
+    g+=`<text class="axis" x="${(x+barw/2).toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(lb)}</text>`;
+  });
+  return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+function svgLine(labels,values,opts={}){
+  const W=opts.w||560,H=opts.h||260,pad={t:14,r:14,b:34,l:46};
+  const max=Math.max(1,...values),iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  const col=opts.color||cssv('--brand');const stepX=iw/Math.max(1,labels.length-1);
+  let g='';
+  for(let i=0;i<=4;i++){const y=pad.t+ih-(ih*i/4);g+=`<line class="gl" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/><text class="axis" x="${pad.l-6}" y="${y+3}" text-anchor="end">${Math.round(max*i/4)}</text>`;}
+  const pts=values.map((v,i)=>[pad.l+stepX*i,pad.t+ih-ih*(v/max)]);
+  const dLine=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const dArea=dLine+` L ${pts[pts.length-1][0].toFixed(1)} ${pad.t+ih} L ${pts[0][0].toFixed(1)} ${pad.t+ih} Z`;
+  g+=`<path d="${dArea}" fill="${col}" opacity=".12"/>`;
+  g+=`<path d="${dLine}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((p,i)=>{g+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${col}"><title>${esc(labels[i])}: ${values[i]}</title></circle>`;
+    g+=`<text class="axis" x="${p[0].toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(labels[i])}</text>`;});
+  return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+function svgDonut(segs,opts={}){
+  // segs: [{label,value,color}]
+  const sz=opts.size||200,cx=sz/2,cy=sz/2,r=sz/2-8,rin=opts.inner||r*.58;
+  const total=segs.reduce((a,s)=>a+s.value,0)||1;let ang=-Math.PI/2,g='';
+  segs.forEach(s=>{
+    const a2=ang+(s.value/total)*Math.PI*2;
+    const x1=cx+r*Math.cos(ang),y1=cy+r*Math.sin(ang),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    const xi2=cx+rin*Math.cos(a2),yi2=cy+rin*Math.sin(a2),xi1=cx+rin*Math.cos(ang),yi1=cy+rin*Math.sin(ang);
+    const large=(a2-ang)>Math.PI?1:0;
+    g+=`<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${xi2.toFixed(2)} ${yi2.toFixed(2)} A${rin} ${rin} 0 ${large} 0 ${xi1.toFixed(2)} ${yi1.toFixed(2)} Z" fill="${s.color}"><title>${esc(s.label)}: ${s.value}</title></path>`;
+    ang=a2;
+  });
+  g+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="26" font-weight="800" fill="${cssv('--text')}">${total}</text>`;
+  g+=`<text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="11" fill="${cssv('--text3')}">${esc(opts.center||'')}</text>`;
+  return `<svg class="svgchart" viewBox="0 0 ${sz} ${sz}" style="max-width:${sz}px;margin:0 auto">${g}</svg>`;
+}
+function legend(items){return `<div class="chart-legend">${items.map(it=>`<span><i style="background:${it.color}"></i>${esc(it.label)}</span>`).join('')}</div>`;}
+
+/* ============================================================
+   KPI
+============================================================ */
+function kpi(tone,icon,val,lbl,sub,pill){
+  const p=pill?`<span class="pg ${pill.dir}">${pill.txt}</span>`:'';
+  return `<div class="kpi b-${tone}"><div class="tp"><div class="ic">${ic(icon)}</div>${p}</div>
+    <div class="v num" data-c="${val}">0</div><div class="l">${lbl}</div>${sub?`<div class="s">${sub}</div>`:''}</div>`;
+}
+function countUp(scope){
+  $$('.v[data-c]',scope||document).forEach(el=>{
+    const raw=el.dataset.c,isF=/\./.test(raw),tg=Number(raw)||0,t0=performance.now();
+    (function st(now){const p=Math.min((now-t0)/800,1),e=1-Math.pow(1-p,3),v=tg*e;
+      el.textContent=isF?v.toFixed(2):fmt(Math.round(v));if(p<1)requestAnimationFrame(st);})(t0);
+  });
+}
+
+/* ============================================================
+   OVERVIEW
+============================================================ */
+function buildOverview(){
+  const a=agg();
+  $('#ovMeta').innerHTML=`الشهر المرجعي: <b>${DB.currentMonth}</b> · ${a.total} طفل`;
+  // priority alert first (manager's eye goes here)
+  $('#ovAlert').innerHTML=a.late>0?`<div class="alertbar">
+    <div class="big num">${a.late}</div>
+    <div class="tx"><b>كفالة متأخّرة تحتاج متابعة فورية</b>
+      <p>${a.late} طفلاً غير مكفول في ${DB.currentMonth} من أصل ${a.total} (تغطية ${a.coverage}%).</p></div>
+    <button class="btn pri" onclick="go('alerts')">${ic('chev')} عرض القائمة</button></div>`:'';
+
+  $('#ovKpis').innerHTML=
+    kpi('brand','child',a.total,'إجمالي الأطفال','مسجّلون في السجل')+
+    kpi('ok','heart',a.paid,'مكفولون — '+DB.currentMonth,'تغطية '+a.coverage+'%')+
+    kpi('bad','clock',a.late,'متأخّرون عن الكفالة','في '+DB.currentMonth)+
+    kpi('gold','money',a.monthValue,'قيمة كفالة الشهر ($)',a.paid+' × $'+UNIT)+
+    kpi('male','mars',a.males,'ذكور')+
+    kpi('female','venus',a.females,'إناث')+
+    kpi('warn','crack',a.orphans,'الأيتام',Math.round(a.orphans/a.total*100)+'% من الأطفال')+
+    kpi('brand','trend',a.yearValue,'إجمالي محصّل سنوياً ($)',a.yearMarks+' شهر تبرّع');
+  countUp($('#ovKpis'));
+
+  // charts (SVG)
+  const paid=paidByMonth().slice(0,6),unpaid=paid.map((v,i)=>a.total-v);
+  $('#chCoverage').innerHTML=svgStacked(MSHORT.slice(0,6),paid,unpaid)+legend([{label:'مكفول',color:cssv('--ok')},{label:'غير مكفول',color:cssv('--bad')}]);
+
+  const money=DB.stats.slice(0,6).map(s=>n0(s.total_usd));
+  $('#chMoney').innerHTML=svgLine(MSHORT.slice(0,6),money,{color:cssv('--brand')});
+
+  const cc={};DB.children.forEach(c=>cc[c.city]=(cc[c.city]||0)+1);
+  const cityData=Object.entries(cc).sort((x,y)=>y[1]-x[1]).map(([k,v])=>({label:k,value:v}));
+  $('#chCity').innerHTML=svgHBar(cityData,{color:cssv('--brand'),padL:155});
+
+  $('#chDemo').innerHTML=svgDonut([
+    {label:'ذكور',value:a.males,color:cssv('--male')},
+    {label:'إناث',value:a.females,color:cssv('--female')},
+    {label:'أيتام',value:a.orphans,color:cssv('--gold')}],{center:'طفل'})+
+    legend([{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')},{label:'أيتام '+a.orphans,color:cssv('--gold')}]);
+}
+
+/* ============================================================
+   ALERTS
+============================================================ */
+function buildAlerts(){
+  const late=DB.children.filter(isLate);
+  const nb=$('#navAlert');if(nb){nb.textContent=late.length;nb.style.display=late.length?'grid':'none';}
+  const s2=late.filter(c=>c.unpaidStreak>=2).length;
+  $('#alMeta').textContent='الشهر المرجعي: '+DB.currentMonth;
+  $('#alBanner').innerHTML=`<div class="big num">${late.length}</div>
+    <div class="tx"><b>كفالة متأخّرة في ${DB.currentMonth}</b>
+    <p>منهم ${s2} متأخّرون لشهرين متتاليين أو أكثر — أولوية تواصل قصوى.</p></div>`;
+  renderAlerts();
+  $('#alSearch').oninput=renderAlerts;$('#alStreak').onchange=renderAlerts;
+}
+function renderAlerts(){
+  const q=($('#alSearch').value||'').trim().toLowerCase(),f=$('#alStreak').value;
+  let list=DB.children.filter(isLate);
+  if(f==='2')list=list.filter(c=>c.unpaidStreak>=2);
+  if(f==='1')list=list.filter(c=>c.unpaidStreak===1);
+  if(q)list=list.filter(c=>`${c.name} ${c.box} ${c.city}`.toLowerCase().includes(q));
+  list.sort((a,b)=>b.unpaidStreak-a.unpaidStreak);
+  const box=$('#alList');
+  if(!list.length){box.innerHTML=`<div class="empty"><div class="ei">${ic('check')}</div><b>لا كفالات متأخّرة مطابقة</b><p>كل الأطفال ضمن النطاق المحدّد مكفولون.</p></div>`;return;}
+  box.innerHTML=list.map(c=>{const sc=c.unpaidStreak>=2?'s2':'s1',t=c.unpaidStreak>=2?`متأخّر ${c.unpaidStreak} أشهر`:'متأخّر شهر';
+    return `<div class="arow"><div class="bx num">#${esc(c.box)}</div>
+      <div class="wh"><b>${esc(c.name)}</b><span>${esc(c.city)} · ${esc(c.fieldWorker||'—')}</span></div>
+      <div class="stk ${sc}">${t}</div>
+      <button class="go" onclick="openChild('${esc(c.box)}')">${ic('chev')}</button></div>`;}).join('');
+}
+
+/* ============================================================
+   WORKERS
+============================================================ */
 function buildWorkers(){
-  const W=workerStats(); const a=agg();
+  const W=workerStats(),a=agg();
   const best=[...W].sort((x,y)=>(y.paidNow/y.kids)-(x.paidNow/x.kids))[0];
   $('#wkKpis').innerHTML=
-    kpi('brand','fa-user-tie',W.length,'عدد الميدانيين','يغطّون المشروع') +
-    kpi('ok','fa-children',(a.total/W.length).toFixed(1),'متوسط الأطفال / ميداني') +
-    kpi('gold','fa-trophy',best?best.name:'—','الأعلى تغطية',best?`${Math.round(best.paidNow/best.kids*100)}% مكفول`:'') +
-    kpi('warn','fa-user-clock',Math.max(...W.map(w=>w.late)),'أعلى عدد متأخّرين','لدى ميداني واحد');
+    kpi('brand','users',W.length,'عدد الميدانيين','يغطّون المشروع')+
+    kpi('ok','child',(a.total/W.length).toFixed(1),'متوسط الأطفال / ميداني')+
+    kpi('gold','trophy',best?Math.round(best.paidNow/best.kids*100)+'%':'—','أعلى تغطية',best?best.name:'')+
+    kpi('warn','clock',Math.max(...W.map(w=>w.late)),'أعلى عدد متأخّرين','لدى ميداني واحد');
   countUp($('#wkKpis'));
-
-  const maxKids=Math.max(...W.map(w=>w.kids));
-  $('#wkLoad').innerHTML=W.map(w=>`<div class="wbar"><div class="nm">${w.name}</div>
-    <div class="track"><div class="fill" style="width:${w.kids/maxKids*100}%"></div></div>
-    <div class="v">${w.kids}</div></div>`).join('');
-  const maxMarks=Math.max(...W.map(w=>w.marks));
-  $('#wkPaid').innerHTML=W.map(w=>`<div class="wbar"><div class="nm">${w.name}</div>
-    <div class="track"><div class="fill" style="width:${w.marks/maxMarks*100}%;background:linear-gradient(90deg,var(--gold),#d4a14b)"></div></div>
-    <div class="v">${w.marks}</div></div>`).join('');
-
-  $('#wkTable tbody').innerHTML=W.map(w=>{
-    const cov=Math.round(w.paidNow/w.kids*100);
-    return `<tr><td><b>${w.name}</b></td><td class="num">${w.kids}</td>
-      <td class="num">${w.paidNow}</td><td class="num">${w.late}</td>
-      <td class="num">${w.marks}</td><td class="num">${usd(w.usd)}</td>
-      <td><span class="chip ${cov>=70?'ok':cov>=40?'warn':'bad'}">${cov}%</span></td></tr>`; }).join('');
+  $('#wkLoad').innerHTML=svgHBar(W.map(w=>({label:w.name,value:w.kids})),{color:cssv('--brand'),padL:130});
+  $('#wkPaid').innerHTML=svgHBar(W.map(w=>({label:w.name,value:w.marks})),{color:cssv('--gold'),padL:130});
+  $('#wkTable tbody').innerHTML=W.map(w=>{const cov=Math.round(w.paidNow/w.kids*100);
+    return `<tr><td><b>${esc(w.name)}</b></td><td class="num">${w.kids}</td><td class="num">${w.paidNow}</td>
+      <td class="num">${w.late}</td><td class="num">${w.marks}</td><td class="num">${usd(w.usd)}</td>
+      <td><span class="chip ${cov>=70?'ok':cov>=40?'warn':'bad'}">${cov}%</span></td></tr>`;}).join('');
 }
 
-/* =================================================================
-   LOGISTICS  (real or honest empty state)
-================================================================= */
+/* ============================================================
+   LOGISTICS
+============================================================ */
 function buildLogistics(){
-  const L=DB.logistics, host=$('#logContent');
-  if(!L.length){
-    host.innerHTML=`<div class="empty">
-      <div class="ei"><i class="fa-solid fa-truck-ramp-box"></i></div>
-      <b>السجل اللوجستي فارغ في ملف Excel</b>
-      <p>ورقة «السجل اللوجستي» لا تحتوي بعد على صفوف بيانات (تكاليف مواصلات أو زيارات).
-      أضف الصفوف في Google Sheet — العناوين: الشهر، الميداني، المنطقة،
-      <code>تكلفة المواصلات</code>، <code>عدد الزيارات</code> — وستظهر هنا التحليلات تلقائياً.
-      لم تُختلَق أي أرقام تجريبية احتراماً لدقّة البيانات.</p></div>`;
-    return;
-  }
-  const totT=L.reduce((a,l)=>a+n0(l.transport),0);
-  const totV=L.reduce((a,l)=>a+n0(l.visits),0);
-  const avg=totV?totT/totV:0;
+  const L=DB.logistics,host=$('#logContent');
+  if(!L.length){host.innerHTML=`<div class="empty"><div class="ei">${ic('truck')}</div>
+    <b>السجل اللوجستي فارغ في ملف Excel</b>
+    <p>ورقة «السجل اللوجستي» لا تحتوي بعد صفوف بيانات. أضف الصفوف (الشهر، الميداني، المنطقة،
+    <code>تكلفة المواصلات</code>، <code>عدد الزيارات</code>) في Google Sheet لتظهر التحليلات تلقائياً.
+    لم تُختلَق أرقام تجريبية احتراماً لدقّة البيانات.</p></div>`;return;}
+  const totT=L.reduce((a,l)=>a+n0(l.transport),0),totV=L.reduce((a,l)=>a+n0(l.visits),0),avg=totV?totT/totV:0;
   host.innerHTML=`<div class="kpis" id="logK"></div>
     <div class="slabel">الاتجاهات</div>
-    <div class="grid g-2">
-      <div class="panel"><h3><i class="fa-solid fa-sack-dollar"></i> تكلفة المواصلات شهرياً</h3><div class="chart"><canvas id="chLT"></canvas></div></div>
-      <div class="panel"><h3><i class="fa-solid fa-route"></i> الزيارات وتكلفة الزيارة</h3><div class="chart"><canvas id="chLV"></canvas></div></div>
-    </div>
+    <div class="grid g2">
+      <div class="panel"><h3>${ic('money')} تكلفة المواصلات شهرياً</h3><div id="chLT"></div></div>
+      <div class="panel"><h3>${ic('route')} الزيارات شهرياً</h3><div id="chLV"></div></div></div>
     <div class="slabel">السجل التفصيلي</div>
-    <div class="twrap"><table class="t"><thead><tr><th>الشهر</th><th>الميداني</th><th>المنطقة</th>
-      <th>المواصلات (USD)</th><th>الزيارات</th><th>تكلفة الزيارة (USD)</th><th>ملاحظات</th></tr></thead>
-      <tbody>${L.map(l=>`<tr><td>${l.month}</td><td>${l.worker||'—'}</td><td>${l.region||'—'}</td>
-        <td class="num">${usd(l.transport)}</td><td class="num">${fmt(l.visits)}</td>
-        <td class="num">${usd(l.cost_per)}</td><td>${l.notes||''}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3">الإجمالي</td><td class="num">${usd(totT)}</td><td class="num">${fmt(totV)}</td><td class="num">${usd(avg)}</td><td></td></tr></tfoot>
-    </table></div>`;
-  $('#logK').innerHTML=
-    kpi('gold','fa-sack-dollar',totT,'إجمالي المواصلات (USD)') +
-    kpi('brand','fa-person-walking',totV,'إجمالي الزيارات') +
-    kpi('ok','fa-calculator',avg.toFixed(2),'متوسط تكلفة الزيارة (USD)');
+    <div class="tw"><table class="t"><thead><tr><th>الشهر</th><th>الميداني</th><th>المنطقة</th><th>المواصلات</th><th>الزيارات</th><th>تكلفة الزيارة</th><th>ملاحظات</th></tr></thead>
+    <tbody>${L.map(l=>`<tr><td>${esc(l.month)}</td><td>${esc(l.worker||'—')}</td><td>${esc(l.region||'—')}</td>
+      <td class="num">${usd(l.transport)}</td><td class="num">${fmt(l.visits)}</td><td class="num">${usd(l.cost_per)}</td><td>${esc(l.notes||'')}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="3">الإجمالي</td><td class="num">${usd(totT)}</td><td class="num">${fmt(totV)}</td><td class="num">${usd(avg)}</td><td></td></tr></tfoot></table></div>`;
+  $('#logK').innerHTML=kpi('gold','money',totT,'إجمالي المواصلات ($)')+kpi('brand','walk',totV,'إجمالي الزيارات')+kpi('ok','calc',avg.toFixed(2),'متوسط تكلفة الزيارة ($)');
   countUp($('#logK'));
-  if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
-  const c=ck();
-  CH.lt=new Chart($('#chLT'),{type:'bar',data:{labels:L.map(l=>l.month),datasets:[{label:'مواصلات $',data:L.map(l=>l.transport),backgroundColor:c.gold,borderRadius:6}]},options:opts(c,{plugins:{legend:{display:false}}})});
-  CH.lv=new Chart($('#chLV'),{type:'bar',data:{labels:L.map(l=>l.month),datasets:[
-    {label:'زيارات',data:L.map(l=>l.visits),backgroundColor:c.brand,borderRadius:6},
-    {label:'تكلفة الزيارة $',type:'line',data:L.map(l=>l.cost_per),borderColor:c.bad,tension:.3,pointRadius:3}]},options:opts(c)});
+  $('#chLT').innerHTML=svgBar(L.map(l=>({label:l.month,value:Math.round(n0(l.transport))})),{color:cssv('--gold')});
+  $('#chLV').innerHTML=svgBar(L.map(l=>({label:l.month,value:n0(l.visits)})),{color:cssv('--brand')});
 }
 
-/* =================================================================
-   EFFICIENCY  (visits vs active sponsorships)
-================================================================= */
+/* ============================================================
+   EFFICIENCY
+============================================================ */
 function buildEfficiency(){
-  const host=$('#effContent');
-  const hasVisits=DB.logistics.some(l=>n0(l.visits)>0);
-  // active per month from real matrix
-  const activeByM=MONTHS.map(m=>DB.children.filter(x=>String(x.months?.[m]).trim()==='✓').length);
-  if(!hasVisits){
-    host.innerHTML=`
-      <div class="kpis">
-        ${kpi('ok','fa-hand-holding-heart',agg().paid,'كفالات نشطة — '+DB.currentMonth,'')}
-        ${kpi('warn','fa-person-walking','—','زيارات مسجّلة','لا بيانات في السجل اللوجستي')}
-        ${kpi('bad','fa-gauge','—','مؤشر الكفاءة','يتطلّب بيانات الزيارات')}
-      </div>
-      <div class="slabel">الكفالات النشطة شهرياً (متاح من البيانات)</div>
-      <div class="panel"><h3><i class="fa-solid fa-chart-column"></i> عدد الكفالات النشطة لكل شهر</h3><div class="chart tall"><canvas id="chEffA"></canvas></div></div>
-      <div class="empty" style="margin-top:18px">
-        <div class="ei"><i class="fa-solid fa-gauge"></i></div>
+  const host=$('#effContent'),hasV=DB.logistics.some(l=>n0(l.visits)>0);
+  const activeByM=MONTHS.slice(0,DB.currentMonthIndex+1).map(m=>DB.children.filter(c=>String(c.months?.[m]).trim()==='✓').length);
+  const labels=MSHORT.slice(0,DB.currentMonthIndex+1);
+  if(!hasV){
+    host.innerHTML=`<div class="kpis">
+      ${kpi('ok','heart',agg().paid,'كفالات نشطة — '+DB.currentMonth,'')}
+      ${kpi('warn','walk','—','زيارات مسجّلة','لا بيانات في اللوجستي')}
+      ${kpi('bad','gauge','—','مؤشر الكفاءة','يتطلّب بيانات الزيارات')}</div>
+      <div class="slabel">الكفالات النشطة شهرياً (المتاح من البيانات)</div>
+      <div class="panel"><h3>${ic('trend')} عدد الكفالات النشطة لكل شهر</h3><div id="chEffA"></div></div>
+      <div class="empty" style="margin-top:18px"><div class="ei">${ic('gauge')}</div>
         <b>تحليل الكفاءة يحتاج بيانات الزيارات</b>
-        <p>مؤشر الكفاءة = (الكفالات النشطة ÷ عدد الزيارات) × 100. بما أن ورقة
-        «السجل اللوجستي» لا تحتوي عدد زيارات فعلية بعد، عُرض الجزء المتاح فقط
-        (الكفالات النشطة). أدخِل الزيارات لتفعيل المؤشر كاملاً.</p></div>`;
-    if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
-    const c=ck();
-    CH.effa=new Chart($('#chEffA'),{type:'bar',data:{labels:MONTH_SHORT,datasets:[{label:'كفالات نشطة',data:activeByM,backgroundColor:c.ok,borderRadius:6}]},options:opts(c,{plugins:{legend:{display:false}}})});
-    return;
+        <p>مؤشر الكفاءة = (الكفالات النشطة ÷ عدد الزيارات) × 100. لأن ورقة اللوجستي
+        لا تحوي زيارات فعلية بعد، عُرض الجزء المتاح فقط. أدخِل الزيارات لتفعيل المؤشر كاملاً.</p></div>`;
+    $('#chEffA').innerHTML=svgBar(labels.map((l,i)=>({label:l,value:activeByM[i]})),{color:cssv('--ok')});return;
   }
-  // full efficiency when visits exist
-  const visByM=MONTHS.map(m=>DB.logistics.filter(l=>String(l.month).includes(m)).reduce((a,l)=>a+n0(l.visits),0));
-  const totV=visByM.reduce((a,b)=>a+b,0); const totA=agg().paid;
-  const eff=totV?Math.round(totA/totV*100):0;
-  host.innerHTML=`<div class="kpis">
-      ${kpi('ok','fa-hand-holding-heart',totA,'كفالات نشطة')}
-      ${kpi('brand','fa-person-walking',totV,'إجمالي الزيارات')}
-      ${kpi('gold','fa-gauge',eff,'مؤشر الكفاءة %','نشطة ÷ زيارات')}
-    </div>
-    <div class="panel" style="margin-top:18px"><h3><i class="fa-solid fa-gauge"></i> الزيارات مقابل الكفالات النشطة</h3><div class="chart tall"><canvas id="chEff"></canvas></div></div>`;
+  const visByM=MONTHS.slice(0,DB.currentMonthIndex+1).map(m=>DB.logistics.filter(l=>String(l.month).includes(m)).reduce((a,l)=>a+n0(l.visits),0));
+  const totV=visByM.reduce((a,b)=>a+b,0),totA=agg().paid,eff=totV?Math.round(totA/totV*100):0;
+  host.innerHTML=`<div class="kpis">${kpi('ok','heart',totA,'كفالات نشطة')}${kpi('brand','walk',totV,'إجمالي الزيارات')}${kpi('gold','gauge',eff,'مؤشر الكفاءة %','نشطة ÷ زيارات')}</div>
+    <div class="panel" style="margin-top:18px"><h3>${ic('gauge')} الزيارات مقابل الكفالات النشطة</h3><div id="chEff"></div>
+    ${legend([{label:'كفالات نشطة',color:cssv('--ok')},{label:'زيارات',color:cssv('--bad')}])}</div>`;
   countUp(host);
-  if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
-  const c=ck();
-  CH.eff=new Chart($('#chEff'),{type:'bar',data:{labels:MONTH_SHORT,datasets:[
-    {label:'كفالات نشطة',data:activeByM,backgroundColor:c.ok,borderRadius:6},
-    {label:'زيارات',type:'line',data:visByM,borderColor:c.bad,tension:.3,pointRadius:3}]},options:opts(c)});
+  // grouped: draw active bars + visit markers via stacked-like (two bars side by side simplified -> two charts)
+  $('#chEff').innerHTML=svgStacked(labels,activeByM,visByM.map((v,i)=>Math.max(0,v-activeByM[i])),{colorA:cssv('--ok'),colorB:cssv('--bad')});
 }
 
-/* =================================================================
-   MAP
-================================================================= */
-function buildMap(){
-  if(typeof L==='undefined'){ const el=$('#map'); if(el) el.innerHTML='<div style="height:100%;display:grid;place-items:center;color:var(--text-3);padding:20px;text-align:center">تعذّر تحميل مكتبة الخريطة — تحقّق من اتصال الإنترنت</div>'; return; }
-  if(MAP){ MAP.remove(); MAP=null; }
-  MAP=L.map('map',{center:[36.2,37.16],zoom:8});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:18}).addTo(MAP);
-  CLUSTER=L.markerClusterGroup({maxClusterRadius:45});
-  const c=ck();
-  DB.children.forEach(x=>{
-    if(x.lat==null||x.lng==null) return;
-    const col=isMale(x)?c.male:c.female;
-    const icon=L.divIcon({className:'',html:`<div style="width:17px;height:17px;border-radius:50%;background:${col};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,iconSize:[17,17],iconAnchor:[8,8]});
-    const st=paidNow(x)?'<span style="color:#1f8a4c">✓ مكفول</span>':'<span style="color:#c0392b">⛔ متأخّر</span>';
-    const html=`<div class="pp-name">${x.name}</div>
-      <div class="pp-row"><b>الصندوق</b><span>#${x.box}</span></div>
-      <div class="pp-row"><b>الجنس</b><span>${x.gender}</span></div>
-      <div class="pp-row"><b>المدينة</b><span>${x.city}</span></div>
-      <div class="pp-row"><b>العمر</b><span>${x.age??'—'}</span></div>
-      <div class="pp-row"><b>الكفالة (${DB.currentMonth})</b><span>${st}</span></div>
-      <button class="pp-btn" onclick="openChild('${x.box}')">عرض الملف الكامل</button>`;
-    L.marker([x.lat,x.lng],{icon}).bindPopup(html).addTo(CLUSTER);
-  });
-  MAP.addLayer(CLUSTER);
-  setTimeout(()=>MAP.invalidateSize(),200);
+/* ============================================================
+   GEO (offline city distribution — replaces network map)
+============================================================ */
+function buildGeo(){
+  const cc={};DB.children.forEach(c=>{cc[c.city]=cc[c.city]||{m:0,f:0};isMale(c)?cc[c.city].m++:cc[c.city].f++;});
+  const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));
+  const max=Math.max(...rows.map(([,v])=>v.m+v.f));
+  $('#geoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{
+    const tot=v.m+v.f,w=tot/max*100;
+    return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div>
+      <div class="gt" style="width:${w}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div></div>
+      <div class="gv num">${tot}</div></div>`;}).join('')}</div>
+    ${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')}])}`;
 }
 
-/* =================================================================
-   CHILDREN CARDS
-================================================================= */
+/* ============================================================
+   CHILDREN
+============================================================ */
 function initFilters(){
-  $('#cCity').innerHTML='<option value="">كل المدن</option>'+[...new Set(DB.children.map(c=>c.city))].sort().map(c=>`<option>${c}</option>`).join('');
-  $('#cWorker').innerHTML='<option value="">كل الميدانيين</option>'+[...new Set(DB.children.map(c=>c.fieldWorker))].filter(Boolean).sort().map(w=>`<option>${w}</option>`).join('');
+  $('#cCity').innerHTML='<option value="">كل المدن</option>'+[...new Set(DB.children.map(c=>c.city))].sort().map(c=>`<option>${esc(c)}</option>`).join('');
+  $('#cWorker').innerHTML='<option value="">كل الميدانيين</option>'+[...new Set(DB.children.map(c=>c.fieldWorker))].filter(Boolean).sort().map(w=>`<option>${esc(w)}</option>`).join('');
   ['#cSearch','#cGender','#cCity','#cWorker','#cStatus'].forEach(s=>$(s).addEventListener('input',()=>{cPage=1;renderCards();}));
 }
 function filterChildren(){
-  const q=$('#cSearch').value.trim().toLowerCase(),g=$('#cGender').value,city=$('#cCity').value,w=$('#cWorker').value,st=$('#cStatus').value;
+  const q=($('#cSearch').value||'').trim().toLowerCase(),g=$('#cGender').value,city=$('#cCity').value,w=$('#cWorker').value,st=$('#cStatus').value;
   return DB.children.filter(c=>{
-    if(g&&c.gender!==g)return false;
-    if(city&&c.city!==city)return false;
-    if(w&&c.fieldWorker!==w)return false;
-    if(st==='ok'&&!paidNow(c))return false;
-    if(st==='late'&&!isLate(c))return false;
-    if(st==='orphan'&&!isOrphan(c))return false;
-    if(q&&!`${c.name} ${c.box} ${c.city} ${c.fieldWorker}`.toLowerCase().includes(q))return false;
-    return true;
-  });
+    if(g&&c.gender!==g)return false;if(city&&c.city!==city)return false;if(w&&c.fieldWorker!==w)return false;
+    if(st==='ok'&&!paidNow(c))return false;if(st==='late'&&!isLate(c))return false;if(st==='orphan'&&!isOrphan(c))return false;
+    if(q&&!`${c.name} ${c.box} ${c.city} ${c.fieldWorker}`.toLowerCase().includes(q))return false;return true;});
 }
 function renderCards(){
-  const list=filterChildren();
-  $('#cCount').textContent=`${list.length} طفل`;
-  const pages=Math.max(1,Math.ceil(list.length/PER_PAGE));
-  if(cPage>pages)cPage=1;
-  const slice=list.slice((cPage-1)*PER_PAGE,cPage*PER_PAGE);
-  const grid=$('#cGrid');
-  if(!slice.length){ grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei"><i class="fa-solid fa-magnifying-glass"></i></div><b>لا نتائج</b><p>غيّر معايير البحث أو الفلاتر.</p></div>`; $('#cPager').innerHTML=''; return; }
-  grid.innerHTML=slice.map(c=>{
-    const m=isMale(c);
-    const stChip=paidNow(c)?'<span class="chip ok"><i class="fa-solid fa-check"></i> مكفول</span>'
-      :(c.unpaidStreak>=2?'<span class="chip bad"><i class="fa-solid fa-clock"></i> متأخّر شهرين+</span>':'<span class="chip warn"><i class="fa-solid fa-clock"></i> متأخّر</span>');
-    const strip=MONTHS.slice(0,DB.currentMonthIndex+1).map(mn=>{const v=String(c.months?.[mn]).trim();return `<i class="${v==='✓'?'p':v==='✗'?'x':''}" title="${mn}"></i>`;}).join('');
-    return `<div class="card ${m?'m':'f'}" onclick="openChild('${c.box}')">
-      <div class="head"><div class="ava">${(c.name||'؟').charAt(0)}</div>
-        <div class="hd-t"><b>${c.name}</b><span>${c.city}</span></div></div>
-      <div class="body">
-        <div class="row"><span>الجنس / العمر</span><b>${c.gender} · ${c.age??'—'}</b></div>
-        <div class="row"><span>المرحلة</span><b>${c.stage||'—'}</b></div>
-        <div class="row"><span>الميداني</span><b>${c.fieldWorker||'—'}</b></div>
-        <div class="row"><span>اليُتم</span><b>${isOrphan(c)?'يتيم':'لا'}</b></div>
+  const list=filterChildren();$('#cCount').textContent=list.length+' طفل';
+  const pages=Math.max(1,Math.ceil(list.length/PER_PAGE));if(cPage>pages)cPage=1;
+  const slice=list.slice((cPage-1)*PER_PAGE,cPage*PER_PAGE),grid=$('#cGrid');
+  if(!slice.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="ei">${ic('search')}</div><b>لا نتائج</b><p>غيّر البحث أو الفلاتر.</p></div>`;$('#cPager').innerHTML='';return;}
+  grid.innerHTML=slice.map(c=>{const m=isMale(c);
+    const sc=paidNow(c)?`<span class="chip ok">${ic('check')} مكفول</span>`:(c.unpaidStreak>=2?`<span class="chip bad">${ic('clock')} متأخّر شهرين+</span>`:`<span class="chip warn">${ic('clock')} متأخّر</span>`);
+    const strip=MONTHS.slice(0,DB.currentMonthIndex+1).map(mn=>{const v=String(c.months?.[mn]).trim();return `<i class="${v==='✓'?'p':v==='✗'?'x':''}"></i>`;}).join('');
+    return `<div class="card ${m?'m':'f'}" onclick="openChild('${esc(c.box)}')">
+      <div class="hd"><div class="av">${esc((c.name||'؟').charAt(0))}</div><div class="ht"><b>${esc(c.name)}</b><span>${esc(c.city)}</span></div></div>
+      <div class="bd"><div class="rw"><span>الجنس / العمر</span><b>${esc(c.gender)} · ${esc(c.age??'—')}</b></div>
+        <div class="rw"><span>المرحلة</span><b>${esc(c.stage||'—')}</b></div>
+        <div class="rw"><span>الميداني</span><b>${esc(c.fieldWorker||'—')}</b></div>
+        <div class="rw"><span>اليُتم</span><b>${isOrphan(c)?'يتيم':'لا'}</b></div>
         <div class="strip">${strip}</div>
-        <div class="foot">${stChip}<span class="dot-tag">#${c.box}</span></div>
-      </div></div>`;
-  }).join('');
-  // pager
-  let p=`<button ${cPage===1?'disabled':''} onclick="setCPage(${cPage-1})"><i class="fa-solid fa-angle-right"></i></button>`;
-  for(let i=1;i<=pages;i++){
-    if(pages>7&&Math.abs(i-cPage)>2&&i!==1&&i!==pages){ if(i===2||i===pages-1)p+=`<button disabled>…</button>`; continue; }
-    p+=`<button class="${i===cPage?'active':''}" onclick="setCPage(${i})">${i}</button>`;
-  }
-  p+=`<button ${cPage===pages?'disabled':''} onclick="setCPage(${cPage+1})"><i class="fa-solid fa-angle-left"></i></button>`;
+        <div class="ft">${sc}<span class="dt num">#${esc(c.box)}</span></div></div></div>`;}).join('');
+  let p=`<button ${cPage===1?'disabled':''} onclick="setCPage(${cPage-1})">${ic('chev')}</button>`;
+  for(let i=1;i<=pages;i++){if(pages>7&&Math.abs(i-cPage)>2&&i!==1&&i!==pages){if(i===2||i===pages-1)p+=`<button disabled>…</button>`;continue;}p+=`<button class="${i===cPage?'active':''}" onclick="setCPage(${i})">${i}</button>`;}
+  p+=`<button ${cPage===pages?'disabled':''} onclick="setCPage(${cPage+1})" style="transform:scaleX(-1)">${ic('chev')}</button>`;
   $('#cPager').innerHTML=p;
 }
 window.setCPage=i=>{cPage=i;renderCards();window.scrollTo({top:0,behavior:'smooth'});};
 
-/* =================================================================
-   CHILD PROFILE DRAWER
-================================================================= */
+/* ============================================================
+   DRAWER
+============================================================ */
 window.openChild=box=>{
-  const c=DB.children.find(x=>String(x.box)===String(box)); if(!c)return;
-  const m=isMale(c);
-  const monthsCells=MONTHS.map((mn,i)=>{
-    const v=String(c.months?.[mn]).trim(); const cls=v==='✓'?'p':v==='✗'?'x':'b';
-    const sym=v==='✓'?'✓':v==='✗'?'✗':'—';
-    return `<div class="dr-m ${cls}"><small>${MONTH_SHORT[i]}</small>${sym}</div>`;
-  }).join('');
-  const stChip=paidNow(c)?'<span class="chip ok">مكفول حالياً</span>':`<span class="chip ${c.unpaidStreak>=2?'bad':'warn'}">متأخّر ${c.unpaidStreak} شهر</span>`;
+  const c=DB.children.find(x=>String(x.box)===String(box));if(!c)return;const m=isMale(c);
+  const cells=MONTHS.map((mn,i)=>{const v=String(c.months?.[mn]).trim(),cls=v==='✓'?'p':v==='✗'?'x':'b',sym=v==='✓'?'✓':v==='✗'?'✗':'—';return `<div class="dm ${cls}"><small>${MSHORT[i]}</small>${sym}</div>`;}).join('');
+  const st=paidNow(c)?'<span class="chip ok">مكفول حالياً</span>':`<span class="chip ${c.unpaidStreak>=2?'bad':'warn'}">متأخّر ${c.unpaidStreak} شهر</span>`;
   $('#drawerContent').innerHTML=`
-    <div class="dr-head ${m?'':'f'}">
-      <button class="close" onclick="closeChild()"><i class="fa-solid fa-xmark"></i></button>
-      <div class="ava-lg">${(c.name||'؟').charAt(0)}</div>
-      <h2>${c.name}</h2>
-      <div class="sub">صندوق #${c.box} · ${c.city} · ${c.gender}</div>
-      <div style="margin-top:10px">${stChip}</div>
-    </div>
-    <div class="dr-body">
-      <div class="dr-sec"><h4><i class="fa-solid fa-id-card"></i> الهوية الأساسية</h4>
-        <div class="dr-grid">
-          ${f('العمر',c.age)}${f('تاريخ الميلاد',c.birthdate)}
-          ${f('المدينة',c.city)}${f('حالة اليُتم',c.orphan)}
-          ${f('هاتف ولي الأمر',c.guardianPhone)}${f('الحالة النفسية',c.psych)}
-        </div></div>
-      <div class="dr-sec"><h4><i class="fa-solid fa-graduation-cap"></i> البيانات الأكاديمية</h4>
-        <div class="dr-grid">
-          ${f('المرحلة',c.stage)}${f('الصف',c.grade)}
-          ${f('الانتظام',c.attendance)}${f('العمل السابق',c.prevWork)}
-          ${f('سبب الانقطاع',c.dropReason,true)}
-        </div></div>
-      <div class="dr-sec"><h4><i class="fa-solid fa-user-tie"></i> المتابعة الميدانية</h4>
-        <div class="dr-grid">
-          ${f('الميداني المسؤول',c.fieldWorker)}${f('تاريخ الزيارة',c.visitDate)}
-          ${f('احتياج إضافي',c.extraNeed)}${c.boxLink?`<div class="dr-f full"><div class="k">رابط الصندوق</div><div class="v"><a href="${c.boxLink}" target="_blank">فتح في مولهم <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div></div>`:''}
-        </div></div>
-      <div class="dr-sec"><h4><i class="fa-solid fa-calendar-check"></i> سجل التبرّعات الشهري (${c.paidMonths} شهر)</h4>
-        <div class="dr-months">${monthsCells}</div></div>
-      <div class="dr-sec"><h4><i class="fa-solid fa-sack-dollar"></i> الكفالة المالية</h4>
-        <div class="dr-grid">
-          ${f('أشهر التبرّع',c.paidMonths)}${f('إجمالي الكفالة',usd(c.paidMonths*50))}
-          ${f('نسبة الحسم',(c.discount||0)+'%')}${f('صافي الكفالة',usd(c.net_usd||c.paidMonths*50))}
-        </div></div>
+    <div class="dh ${m?'':'f'}"><button class="cl" onclick="closeChild()">✕</button>
+      <div class="avl">${esc((c.name||'؟').charAt(0))}</div><h2>${esc(c.name)}</h2>
+      <div class="sb">صندوق #${esc(c.box)} · ${esc(c.city)} · ${esc(c.gender)}</div>
+      <div style="margin-top:10px">${st}</div></div>
+    <div class="db">
+      <div class="ds"><h4>${ic('id')} الهوية الأساسية</h4><div class="dg">
+        ${df('العمر',c.age)}${df('تاريخ الميلاد',c.birthdate)}${df('المدينة',c.city)}${df('حالة اليُتم',c.orphan)}
+        ${df('هاتف ولي الأمر',c.guardianPhone)}${df('الحالة النفسية',c.psych)}</div></div>
+      <div class="ds"><h4>${ic('cap')} البيانات الأكاديمية</h4><div class="dg">
+        ${df('المرحلة',c.stage)}${df('الصف',c.grade)}${df('الانتظام',c.attendance)}${df('العمل السابق',c.prevWork)}
+        ${df('سبب الانقطاع',c.dropReason,true)}</div></div>
+      <div class="ds"><h4>${ic('users')} المتابعة الميدانية</h4><div class="dg">
+        ${df('الميداني المسؤول',c.fieldWorker)}${df('تاريخ الزيارة',c.visitDate)}${df('احتياج إضافي',c.extraNeed)}
+        ${c.boxLink?`<div class="df full"><div class="k">رابط الصندوق</div><div class="vv"><a href="${esc(c.boxLink)}" target="_blank" rel="noopener">${ic('link')} فتح الصفحة</a></div></div>`:''}</div></div>
+      <div class="ds"><h4>${ic('cal')} سجل التبرّعات الشهري (${c.paidMonths} شهر)</h4><div class="dms">${cells}</div></div>
+      <div class="ds"><h4>${ic('money')} الكفالة المالية</h4><div class="dg">
+        ${df('أشهر التبرّع',c.paidMonths)}${df('إجمالي الكفالة',usd(n0(c.paidMonths)*UNIT))}
+        ${df('نسبة الحسم',(c.discount||0)+'%')}${df('صافي الكفالة',usd(c.net_usd||n0(c.paidMonths)*UNIT))}</div></div>
     </div>`;
-  $('#drawer').classList.add('open'); $('#drawerBg').classList.add('open');
+  $('#drawer').classList.add('open');$('#dbg').classList.add('open');
 };
-function f(k,v,full){ return `<div class="dr-f ${full?'full':''}"><div class="k">${k}</div><div class="v">${(v===''||v==null)?'—':v}</div></div>`; }
-window.closeChild=()=>{ $('#drawer').classList.remove('open'); $('#drawerBg').classList.remove('open'); };
+function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
+window.closeChild=()=>{$('#drawer').classList.remove('open');$('#dbg').classList.remove('open');};
 
-/* =================================================================
+/* ============================================================
    REPORTS
-================================================================= */
+============================================================ */
 function initReports(){
-  $('#rpMonth').innerHTML=DB.stats.map(s=>`<option>${s.month}</option>`).join('');
-  $('#rpType').onchange=()=>{ $('#rpMonth').style.display=$('#rpType').value==='monthly'?'block':'none'; renderReport(); };
-  $('#rpMonth').onchange=renderReport;
-  $('#rpMonth').style.display='none';
-  renderReport();
+  $('#rpMonth').innerHTML=DB.stats.map(s=>`<option>${esc(s.month)}</option>`).join('');
+  $('#rpType').onchange=()=>{$('#rpMonth').style.display=$('#rpType').value==='monthly'?'block':'none';renderReport();};
+  $('#rpMonth').onchange=renderReport;$('#rpMonth').style.display='none';renderReport();
 }
 function renderReport(){
-  const type=$('#rpType').value;
-  if(type==='annual') $('#rpView').innerHTML=annualReport();
-  else $('#rpView').innerHTML=monthlyReport($('#rpMonth').value);
-  countUp($('#rpView'));
+  $('#rpView').innerHTML=$('#rpType').value==='annual'?annualReport():monthlyReport($('#rpMonth').value);countUp($('#rpView'));
 }
 function annualReport(){
-  const a=agg();
-  const totSpon=DB.stats.reduce((x,s)=>x+n0(s.total_usd),0);
-  const rows=DB.stats.map(s=>`<tr><td>${s.month}</td><td class="num">${fmt(s.sponsored)}</td>
-    <td class="num">${fmt(s.unsponsored)}</td><td class="num">${Math.round(n0(s.coverage)*100)}%</td>
-    <td class="num">${usd(s.total_usd)}</td></tr>`).join('');
+  const a=agg(),totSpon=DB.stats.reduce((x,s)=>x+n0(s.total_usd),0);
   return `<div class="kpis">
-      ${kpi('brand','fa-children',a.total,'إجمالي الأطفال')}
-      ${kpi('ok','fa-hand-holding-heart',a.yearPaidMarks,'مجموع أشهر التبرّع')}
-      ${kpi('gold','fa-sack-dollar',totSpon,'إجمالي الكفالات المسجّلة (USD)')}
-      ${kpi('warn','fa-heart-crack',a.orphans,'الأيتام')}
-    </div>
+    ${kpi('brand','child',a.total,'إجمالي الأطفال')}${kpi('ok','heart',a.yearMarks,'مجموع أشهر التبرّع')}
+    ${kpi('gold','money',totSpon,'إجمالي الكفالات المسجّلة ($)')}${kpi('warn','crack',a.orphans,'الأيتام')}</div>
     <div class="slabel">الملخّص الشهري — السنة الكاملة</div>
-    <div class="twrap"><table class="t"><thead><tr><th>الشهر</th><th>مكفول</th><th>غير مكفول</th><th>التغطية</th><th>قيمة الكفالات</th></tr></thead>
-      <tbody>${rows}</tbody>
-      <tfoot><tr><td>الإجمالي</td><td class="num">${fmt(DB.stats.reduce((x,s)=>x+n0(s.sponsored),0))}</td>
-      <td class="num">${fmt(DB.stats.reduce((x,s)=>x+n0(s.unsponsored),0))}</td><td>—</td><td class="num">${usd(totSpon)}</td></tr></tfoot>
-    </table></div>`;
+    <div class="tw"><table class="t"><thead><tr><th>الشهر</th><th>مكفول</th><th>غير مكفول</th><th>التغطية</th><th>قيمة الكفالات</th></tr></thead>
+    <tbody>${DB.stats.map(s=>`<tr><td>${esc(s.month)}</td><td class="num">${fmt(s.sponsored)}</td><td class="num">${fmt(s.unsponsored)}</td><td class="num">${Math.round(n0(s.coverage)*100)}%</td><td class="num">${usd(s.total_usd)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>الإجمالي</td><td class="num">${fmt(DB.stats.reduce((x,s)=>x+n0(s.sponsored),0))}</td><td class="num">${fmt(DB.stats.reduce((x,s)=>x+n0(s.unsponsored),0))}</td><td>—</td><td class="num">${usd(totSpon)}</td></tr></tfoot></table></div>`;
 }
 function monthlyReport(month){
-  const s=DB.stats.find(x=>x.month===month); if(!s) return '<div class="empty"><b>لا بيانات لهذا الشهر</b></div>';
-  const idx=MONTHS.indexOf(month);
-  const paidKids=DB.children.filter(c=>String(c.months?.[month]).trim()==='✓');
+  const s=DB.stats.find(x=>x.month===month);if(!s)return '<div class="empty"><b>لا بيانات لهذا الشهر</b></div>';
   const lateKids=DB.children.filter(c=>String(c.months?.[month]).trim()!=='✓');
   return `<div class="kpis">
-      ${kpi('ok','fa-hand-holding-heart',n0(s.sponsored),'مكفولون — '+month)}
-      ${kpi('bad','fa-user-clock',n0(s.unsponsored),'غير مكفولين')}
-      ${kpi('gold','fa-sack-dollar',n0(s.total_usd),'قيمة الكفالات (USD)')}
-      ${kpi('brand','fa-percent',Math.round(n0(s.coverage)*100),'نسبة التغطية %')}
-    </div>
+    ${kpi('ok','heart',n0(s.sponsored),'مكفولون — '+month)}${kpi('bad','clock',n0(s.unsponsored),'غير مكفولين')}
+    ${kpi('gold','money',n0(s.total_usd),'قيمة الكفالات ($)')}${kpi('brand','percent',Math.round(n0(s.coverage)*100),'نسبة التغطية %')}</div>
     <div class="slabel">الأطفال غير المكفولين في ${month} (${lateKids.length})</div>
-    <div class="twrap"><table class="t"><thead><tr><th>#</th><th>الاسم</th><th>المدينة</th><th>الميداني</th></tr></thead>
-      <tbody>${lateKids.map(c=>`<tr><td class="num">${c.box}</td><td>${c.name}</td><td>${c.city}</td><td>${c.fieldWorker||'—'}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-3)">الجميع مكفول 🎉</td></tr>'}</tbody>
-    </table></div>`;
+    <div class="tw"><table class="t"><thead><tr><th>#</th><th>الاسم</th><th>المدينة</th><th>الميداني</th></tr></thead>
+    <tbody>${lateKids.map(c=>`<tr><td class="num">${esc(c.box)}</td><td>${esc(c.name)}</td><td>${esc(c.city)}</td><td>${esc(c.fieldWorker||'—')}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text3)">الجميع مكفول 🎉</td></tr>'}</tbody></table></div>`;
 }
 
-/* =================================================================
-   EXPORTS
-================================================================= */
-function exportXlsx(){
-  const wb=XLSX.utils.book_new();
-  const rows=DB.children.map(c=>({'رقم الصندوق':c.box,'الاسم':c.name,'الجنس':c.gender,'المدينة':c.city,
-    'العمر':c.age,'المرحلة':c.stage,'الصف':c.grade,'يتيم':c.orphan,'الميداني':c.fieldWorker,
-    'هاتف ولي الأمر':c.guardianPhone,'أشهر التبرّع':c.paidMonths,
-    'الحالة الحالية':paidNow(c)?'مكفول':'متأخّر','تأخّر (أشهر)':c.unpaidStreak,
-    'إجمالي الكفالة USD':c.paidMonths*50}));
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'الأطفال');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(DB.stats),'الإحصائيات');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(workerStats().map(w=>({
-    'الميداني':w.name,'الأطفال':w.kids,'مكفول حالياً':w.paidNow,'متأخّر':w.late,'أشهر التبرّع':w.marks,'قيمة محصّلة USD':w.usd}))),'الميدانيون');
-  if(DB.logistics.length) XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(DB.logistics),'اللوجستيات');
-  XLSX.writeFile(wb,'الطفولة_المكسورة_تقرير.xlsx'); toast('تم تصدير Excel');
+/* ============================================================
+   EXPORTS (CSV — no library needed; opens in Excel)
+============================================================ */
+function exportCSV(){
+  const head=['رقم الصندوق','الاسم','الجنس','المدينة','العمر','المرحلة','الصف','يتيم','الميداني','هاتف ولي الأمر','أشهر التبرّع','الحالة الحالية','تأخّر (أشهر)','إجمالي الكفالة USD'];
+  const rows=DB.children.map(c=>[c.box,c.name,c.gender,c.city,c.age,c.stage,c.grade,c.orphan,c.fieldWorker,c.guardianPhone,c.paidMonths,paidNow(c)?'مكفول':'متأخّر',c.unpaidStreak,n0(c.paidMonths)*UNIT]);
+  const csv=[head,...rows].map(r=>r.map(v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='الطفولة_المكسورة_تقرير.csv';a.click();URL.revokeObjectURL(url);toast('تم تصدير CSV (يفتح في Excel)');
 }
-function exportPdf(){
-  const {jsPDF}=window.jspdf; const doc=new jsPDF();
-  const a=agg();
-  doc.setFontSize(16); doc.text('Broken Childhood - Admin Report',14,16);
-  doc.setFontSize(10); doc.text('Generated: '+new Date().toLocaleDateString('en-GB'),14,23);
-  doc.text('Reference month: '+toLatinMonth(DB.currentMonth),14,29);
-  doc.autoTable({startY:35,head:[['Metric','Value']],body:[
-    ['Total children',a.total],['Males / Females',a.males+' / '+a.females],
-    ['Orphans',a.orphans],['Sponsored ('+toLatinMonth(DB.currentMonth)+')',a.paid],
-    ['Late / unpaid',a.late],['Coverage',a.coverage+'%'],
-    ['Month value USD','$'+fmt(a.monthValue)],['Year collected USD','$'+fmt(a.yearValue)]],
-    headStyles:{fillColor:[15,107,84]}});
-  doc.autoTable({startY:doc.lastAutoTable.finalY+8,head:[['Worker','Kids','Sponsored','Late','Paid months']],
-    body:workerStats().map(w=>[w.name,w.kids,w.paidNow,w.late,w.marks]),headStyles:{fillColor:[176,125,43]},styles:{fontSize:9}});
-  doc.save('broken_childhood_admin_report.pdf'); toast('تم تصدير PDF');
-}
-function toLatinMonth(m){ const map={'يناير':'Jan','فبراير':'Feb','مارس':'Mar','أبريل':'Apr','مايو':'May','يونيو':'Jun','يوليو':'Jul','أغسطس':'Aug','سبتمبر':'Sep','أكتوبر':'Oct','نوفمبر':'Nov','ديسمبر':'Dec'}; return map[m]||m; }
+function exportPrint(){window.print();}
 
-/* =================================================================
+/* ============================================================
    NAV / THEME / INIT
-================================================================= */
+============================================================ */
 window.go=name=>{
   $$('.page').forEach(p=>p.classList.remove('active'));
-  $('#p-'+name).classList.add('active');
+  const pg=$('#p-'+name);if(pg)pg.classList.add('active');
   $$('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.p===name));
-  if(name==='map') buildMap();
-  if(name==='children') renderCards();
+  if(name==='geo')buildGeo();if(name==='children')renderCards();
   window.scrollTo({top:0,behavior:'smooth'});
 };
-function applyTheme(t){ document.documentElement.setAttribute('data-theme',t);
-  $('#theme').innerHTML=t==='dark'?'<i class="fa-solid fa-sun"></i>':'<i class="fa-solid fa-moon"></i>';
-  try{localStorage.setItem('cd_theme',t);}catch(_){}}
-function toggleTheme(){ const cur=document.documentElement.getAttribute('data-theme');
-  applyTheme(cur==='dark'?'light':'dark'); rebuildVisuals(); }
-function rebuildVisuals(){
-  buildOverviewCharts();
-  if($('#p-logistics').classList.contains('active')) buildLogistics();
-  if($('#p-efficiency').classList.contains('active')) buildEfficiency();
-  if($('#p-workers').classList.contains('active')) buildWorkers();
-  if($('#p-map').classList.contains('active')) buildMap();
-}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);$('#theme').innerHTML=ic(t==='dark'?'sun':'moon');try{localStorage.setItem('cd_theme',t);}catch(_){}}
+function toggleTheme(){const cur=document.documentElement.getAttribute('data-theme');applyTheme(cur==='dark'?'light':'dark');rebuild();}
+function rebuild(){safe('ov',buildOverview);if($('#p-workers').classList.contains('active'))safe('wk',buildWorkers);if($('#p-logistics').classList.contains('active'))safe('lg',buildLogistics);if($('#p-efficiency').classList.contains('active'))safe('ef',buildEfficiency);if($('#p-geo').classList.contains('active'))safe('geo',buildGeo);}
 
-/* تشغيل خطوة بأمان: خطأ في خطوة لا يوقف بقية اللوحة */
-function safe(label, fn){ try{ fn(); }catch(e){ console.error('['+label+'] فشل:', e); } }
-function hideLoader(){ const l=$('#loader'); if(l) l.classList.add('hide'); }
+function safe(label,fn){try{fn();}catch(e){console.error('['+label+']',e);}}
+function hideLoader(){const l=$('#loader');if(l)l.classList.add('hide');}
 
 async function init(){
-  // ضمان نهائي: مهما حدث، تختفي شاشة التحميل خلال 6 ثوانٍ كحدّ أقصى
-  const failSafe = setTimeout(hideLoader, 6000);
-
-  let saved='light'; try{ saved=localStorage.getItem('cd_theme')||'light'; }catch(_){}
+  const fs=setTimeout(hideLoader,5000);
+  let saved='light';try{saved=localStorage.getItem('cd_theme')||'light';}catch(_){}
   safe('theme',()=>applyTheme(saved));
-
-  try{ await load(); }catch(e){ console.error('load فشل:', e); try{ applyData(EMBEDDED_DATA); }catch(_){ } }
-
-  safe('overview',buildOverview);
-  safe('alerts',buildAlerts);
-  safe('workers',buildWorkers);
-  safe('logistics',buildLogistics);
-  safe('efficiency',buildEfficiency);
-  safe('filters',initFilters);
-  safe('reports',initReports);
-
+  try{await load();}catch(e){try{applyData(EMBEDDED_DATA);}catch(_){}}
+  safe('overview',buildOverview);safe('alerts',buildAlerts);safe('workers',buildWorkers);
+  safe('logistics',buildLogistics);safe('efficiency',buildEfficiency);safe('filters',initFilters);safe('reports',initReports);
   safe('events',()=>{
     $$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
     $('#theme').onclick=toggleTheme;
-    $('#refresh').onclick=async()=>{ toast('جارٍ التحديث…'); try{ await load(); }catch(_){}
-      safe('o',buildOverview); safe('a',buildAlerts); safe('w',buildWorkers); safe('l',buildLogistics); safe('e',buildEfficiency); safe('c',renderCards); safe('r',initReports); toast('تم التحديث'); };
-    $('#drawerBg').onclick=closeChild;
-    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeChild(); });
-    $('#quickPdf').onclick=exportPdf; $('#quickXlsx').onclick=exportXlsx;
-    $('#rpPdf').onclick=exportPdf; $('#rpXlsx').onclick=exportXlsx;
+    $('#refresh').onclick=async()=>{toast('جارٍ التحديث…');try{await load();}catch(_){}rebuild();safe('al',buildAlerts);safe('wk',buildWorkers);safe('lg',buildLogistics);safe('ef',buildEfficiency);safe('cd',renderCards);safe('rp',initReports);toast('تم التحديث');};
+    $('#dbg').onclick=closeChild;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeChild();});
+    $('#expCsv').onclick=exportCSV;$('#expPrint').onclick=exportPrint;
+    $('#rpCsv').onclick=exportCSV;$('#rpPrint').onclick=exportPrint;
   });
-
-  clearTimeout(failSafe);
-  setTimeout(hideLoader, 250);
-
-  // تنبيه إن غابت مكتبة الرسوم (مثلاً بسبب حظر الإعلانات أو ضعف الشبكة)
-  if(typeof Chart==='undefined') toast('تعذّر تحميل مكتبة الرسوم — تحقّق من اتصال الإنترنت');
+  clearTimeout(fs);setTimeout(hideLoader,200);
 }
-
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
-else init();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 
 </script>
 </body>
