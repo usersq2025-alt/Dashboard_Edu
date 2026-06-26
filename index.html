@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الطفولة المكسورة — لوحة الإدارة</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="loader" id="loader">
+    <div style="text-align:center">
+      <div class="spin"></div>
+      <p>جارٍ تحميل سجلّ الكفالة…</p>
+    </div>
+  </div>
+
+  <!-- ===== Top bar ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark"><i class="fa-solid fa-hand-holding-heart"></i></div>
+      <div class="t">الطفولة المكسورة<small>لوحة إدارة الكفالة</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="active" data-p="overview"><i class="fa-solid fa-gauge-high"></i> النظرة العامة</button>
+      <button data-p="alerts"><i class="fa-solid fa-bell"></i> التنبيهات <span class="badge-n" id="navAlert">0</span></button>
+      <button data-p="workers"><i class="fa-solid fa-user-tie"></i> الميدانيون</button>
+      <button data-p="logistics"><i class="fa-solid fa-truck-fast"></i> اللوجستيات</button>
+      <button data-p="efficiency"><i class="fa-solid fa-gauge"></i> الكفاءة</button>
+      <button data-p="map"><i class="fa-solid fa-map-location-dot"></i> الخريطة</button>
+      <button data-p="children"><i class="fa-solid fa-children"></i> الأطفال</button>
+      <button data-p="reports"><i class="fa-solid fa-file-lines"></i> التقارير</button>
+    </nav>
+    <div class="tb-right">
+      <span class="src" id="src"><i class="fa-solid fa-database"></i> ملف Excel</span>
+      <button class="ibtn" id="refresh" title="تحديث"><i class="fa-solid fa-rotate"></i></button>
+      <button class="ibtn" id="theme" title="الوضع الليلي"><i class="fa-solid fa-moon"></i></button>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ============ OVERVIEW ============ -->
+    <section class="page active" id="p-overview">
+      <div class="phead">
+        <div><div class="eyebrow">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div>
+        <div class="meta" id="ovMeta"></div>
+      </div>
+
+      <div id="ovAlert"></div>
+
+      <div class="slabel">مؤشرات الكفالة الفعلية <span class="hint" id="ovCurMonth"></span></div>
+      <div class="kpis" id="ovKpis"></div>
+
+      <div class="slabel">التحليل البصري</div>
+      <div class="grid g-2">
+        <div class="panel"><h3><i class="fa-solid fa-chart-line"></i> تغطية الكفالة عبر الأشهر <span class="tag">مكفول / غير مكفول</span></h3><div class="chart"><canvas id="chCoverage"></canvas></div></div>
+        <div class="panel"><h3><i class="fa-solid fa-sack-dollar"></i> قيمة الكفالات الشهرية (USD) <span class="tag">من الإحصائيات</span></h3><div class="chart"><canvas id="chMoney"></canvas></div></div>
+        <div class="panel"><h3><i class="fa-solid fa-city"></i> توزّع الأطفال على المدن <span class="tag">7 مدن</span></h3><div class="chart"><canvas id="chCity"></canvas></div></div>
+        <div class="panel"><h3><i class="fa-solid fa-venus-mars"></i> التركيبة (جنس / يُتم) <span class="tag">الفئات</span></h3><div class="chart"><canvas id="chDemo"></canvas></div></div>
+      </div>
+    </section>
+
+    <!-- ============ ALERTS ============ -->
+    <section class="page" id="p-alerts">
+      <div class="phead"><div><div class="eyebrow">متابعة عاجلة</div><h1>تنبيهات الكفالات المتأخرة</h1></div>
+        <div class="meta" id="alMeta"></div></div>
+      <div class="alertbar" id="alBanner"></div>
+      <div class="toolbar">
+        <input id="alSearch" placeholder="🔎 بحث بالاسم أو رقم الصندوق…" />
+        <select id="alStreak"><option value="">كل درجات التأخّر</option><option value="2">متأخّر شهرين فأكثر</option><option value="1">متأخّر شهر واحد</option></select>
+      </div>
+      <div class="alist" id="alList"></div>
+    </section>
+
+    <!-- ============ WORKERS ============ -->
+    <section class="page" id="p-workers">
+      <div class="phead"><div><div class="eyebrow">الأداء الميداني</div><h1>مؤشرات أداء الميدانيين</h1></div></div>
+      <div class="kpis" id="wkKpis"></div>
+      <div class="slabel">مقارنة الأداء</div>
+      <div class="grid g-2">
+        <div class="panel"><h3><i class="fa-solid fa-users-line"></i> عدد الأطفال لكل ميداني</h3><div id="wkLoad"></div></div>
+        <div class="panel"><h3><i class="fa-solid fa-circle-check"></i> أشهر التبرّع المُحصّلة لكل ميداني</h3><div id="wkPaid"></div></div>
+      </div>
+      <div class="slabel">جدول الأداء التفصيلي</div>
+      <div class="twrap"><table class="t" id="wkTable">
+        <thead><tr><th>الميداني</th><th>عدد الأطفال</th><th>مكفولون حالياً</th><th>متأخرون</th><th>أشهر التبرّع</th><th>قيمة محصّلة (USD)</th><th>معدّل التغطية</th></tr></thead>
+        <tbody></tbody></table></div>
+    </section>
+
+    <!-- ============ LOGISTICS ============ -->
+    <section class="page" id="p-logistics">
+      <div class="phead"><div><div class="eyebrow">المصروفات</div><h1>تحليل المصروفات اللوجستية</h1></div></div>
+      <div id="logContent"></div>
+    </section>
+
+    <!-- ============ EFFICIENCY ============ -->
+    <section class="page" id="p-efficiency">
+      <div class="phead"><div><div class="eyebrow">القياس</div><h1>تحليل الكفاءة — الزيارات مقابل الكفالات</h1></div></div>
+      <div id="effContent"></div>
+    </section>
+
+    <!-- ============ MAP ============ -->
+    <section class="page" id="p-map">
+      <div class="phead"><div><div class="eyebrow">التوزّع الجغرافي</div><h1>خريطة مواقع الأطفال</h1></div>
+        <div class="meta">العلامات مجمّعة تلقائياً حسب القرب</div></div>
+      <div class="panel">
+        <div id="map"></div>
+        <div class="legend">
+          <span><i class="pin" style="background:var(--male)"></i> ذكر</span>
+          <span><i class="pin" style="background:var(--female)"></i> أنثى</span>
+          <span><i class="fa-solid fa-circle-info"></i> الإحداثيات مُشتقّة من المدينة (الملف لا يحوي إحداثيات دقيقة)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CHILDREN ============ -->
+    <section class="page" id="p-children">
+      <div class="phead"><div><div class="eyebrow">السجل</div><h1>بطاقات الأطفال</h1></div></div>
+      <div class="toolbar">
+        <input id="cSearch" placeholder="🔎 بحث بالاسم أو رقم الصندوق أو المدينة…" />
+        <select id="cGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
+        <select id="cCity"><option value="">كل المدن</option></select>
+        <select id="cWorker"><option value="">كل الميدانيين</option></select>
+        <select id="cStatus"><option value="">كل الحالات</option><option value="ok">مكفول حالياً</option><option value="late">متأخّر</option><option value="orphan">يتيم</option></select>
+        <span class="count" id="cCount"></span>
+      </div>
+      <div class="cards" id="cGrid"></div>
+      <div class="pager" id="cPager"></div>
+    </section>
+
+    <!-- ============ REPORTS ============ -->
+    <section class="page" id="p-reports">
+      <div class="phead"><div><div class="eyebrow">المخرجات</div><h1>التقارير الشهرية والسنوية</h1></div></div>
+      <div class="toolbar">
+        <select id="rpType"><option value="annual">تقرير سنوي شامل</option><option value="monthly">تقرير شهري</option></select>
+        <select id="rpMonth"></select>
+        <button class="btn pri" id="rpPdf"><i class="fa-solid fa-file-pdf"></i> تصدير PDF</button>
+        <button class="btn gold" id="rpXlsx"><i class="fa-solid fa-file-excel"></i> تصدير Excel</button>
+      </div>
+      <div id="rpView"></div>
+    </section>
+
+  </div>
+
+  <!-- ===== Child profile drawer ===== -->
+  <div class="drawer-bg" id="drawerBg"></div>
+  <aside class="drawer" id="drawer"><div id="drawerContent"></div></aside>
+
+  <div class="fab">
+    <button class="btn pri" id="quickPdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+    <button class="btn gold" id="quickXlsx"><i class="fa-solid fa-file-excel"></i> Excel</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.3/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
