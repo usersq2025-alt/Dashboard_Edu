@@ -351,6 +351,8 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
       <span class="pname" id="topProjectName">—</span>
       <nav class="page-nav" id="pageNav"></nav>
       <div class="top-actions">
+        <span class="src" id="srcBadge"></span>
+        <button class="ib" id="refreshBtn" title="تحديث البيانات"></button>
         <button class="ib themeBtn" title="الوضع الليلي"></button>
       </div>
     </div>
@@ -1029,12 +1031,17 @@ const StudentsProject = (function(){
 const Platform = (function(){
 
   /* ============ سجلّ المشاريع (modular) ============
-     لإضافة مشروع جديد مستقبلاً: أضف كائناً هنا مع بياناته ووحدة عرضه. */
+     لإضافة مشروع جديد مستقبلاً: أضف كائناً هنا مع بياناته ووحدة عرضه.
+     apiUrl: رابط Apps Script Web App الخاص بالمشروع (اختياري).
+       • فارغ/افتراضي → بيانات Excel المدمجة.
+       • مملوء → بيانات حيّة من Google Sheets (مع رجوع آمن للمدمج عند الفشل). */
   const PROJECTS=[
     {id:'children',name:'مشروع كفالة الأطفال',sub:'الطفولة المكسورة',icon:'child',
-     accent:'#0f6b54',data:()=>EMBEDDED_CHILDREN,module:()=>ChildrenProject},
+     accent:'#0f6b54',data:()=>EMBEDDED_CHILDREN,module:()=>ChildrenProject,
+     apiUrl:'https://script.google.com/macros/s/AKfycbylzfSUGEOJgF9b_0XaPawGqnh4cE6nF7myclhv6CBQsaFT8RwODC2FCSnHF0nt65jO/exec'},
     {id:'students',name:'مشروع الطلبة الجامعيين',sub:'الدعم الجامعي',icon:'cap',
-     accent:'#2563a8',data:()=>EMBEDDED_STUDENTS,module:()=>StudentsProject},
+     accent:'#2563a8',data:()=>EMBEDDED_STUDENTS,module:()=>StudentsProject,
+     apiUrl:'https://script.google.com/macros/s/AKfycbxEz_EJID2BGGKdLQWXxEzMUe9lzf3c3pxnaQC6V_DCdExSijjD5g-VvtC7v-dOa4mvhQ/exec'},
   ];
 
   let currentProject=null;
@@ -1088,18 +1095,48 @@ const Platform = (function(){
     $('#logoutBtn').innerHTML=ic('logout')+' تسجيل الخروج';
   }
 
-  function openProject(id){
+  /* جلب بيانات مشروع: حيّ من Apps Script إن توفّر الرابط، وإلا المدمج.
+     يحفظ النتيجة في كاش لتفادي إعادة الجلب عند التبديل. */
+  const _cache={};
+  async function loadProjectData(proj){
+    if(_cache[proj.id]) return _cache[proj.id];
+    const hasApi = proj.apiUrl && !proj.apiUrl.startsWith('PUT_');
+    if(!hasApi){ _cache[proj.id]={data:proj.data(),live:false}; return _cache[proj.id]; }
+    try{
+      const res=await fetch(proj.apiUrl,{method:'GET'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const j=await res.json();
+      if(j.ok===false) throw new Error(j.error||'API error');
+      _cache[proj.id]={data:j,live:true};
+    }catch(err){
+      console.error('['+proj.id+'] فشل الجلب الحيّ:',err);
+      _cache[proj.id]={data:proj.data(),live:false,failed:true};
+    }
+    return _cache[proj.id];
+  }
+
+  function setSrcBadge(live,failed){
+    const b=$('#srcBadge'); if(!b) return;
+    if(live){ b.className='src live'; b.innerHTML=ic('trend')+' متصل مباشرة'; }
+    else if(failed){ b.className='src'; b.innerHTML=ic('alert')+' بيانات مدمجة (تعذّر الاتصال)'; }
+    else { b.className='src'; b.innerHTML=ic('file')+' بيانات مدمجة'; }
+  }
+
+  async function openProject(id){
     const proj=PROJECTS.find(p=>p.id===id);if(!proj)return;
     currentProject=proj;currentModule=proj.module();
-    currentModule.setData(proj.data());
-    document.documentElement.style.setProperty('--brand',proj.accent);
-    // re-derive brand2 lightly
     $$('#sbProjects .sb-proj').forEach(b=>b.classList.toggle('active',b.dataset.proj===id));
+    $('#topProjectName').textContent=proj.name;
+    document.documentElement.style.setProperty('--brand',proj.accent);
+    // حالة تحميل بسيطة داخل المضيف
+    $('#projectHost').innerHTML='<div class="empty" style="padding:80px"><div class="spin" style="margin:0 auto 16px"></div><b>جارٍ تحميل بيانات المشروع…</b></div>';
+    const loaded=await loadProjectData(proj);
+    currentModule.setData(loaded.data);
+    setSrcBadge(loaded.live,loaded.failed);
     const res=currentModule.render($('#projectHost'),sharePerm);
     currentPages=res.pages;
     buildPageNav(res.pages,res.alertCount);
-    $('#topProjectName').textContent=proj.name;
-    goPage(res.pages[0].id);
+    if(res.pages.length)goPage(res.pages[0].id);
   }
 
   function buildPageNav(pages,alertCount){
@@ -1139,6 +1176,9 @@ const Platform = (function(){
     $('#logoutBtn').onclick=logout;
     $('#shareBtn').onclick=openShareModal;
     $('#dbg').onclick=closeDrawer;
+    const rb=$('#refreshBtn');
+    if(rb){ rb.innerHTML=ic('refresh');
+      rb.onclick=async()=>{ if(!currentProject)return; delete _cache[currentProject.id]; toast('جارٍ التحديث…'); await openProject(currentProject.id); toast('تم التحديث'); }; }
     document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeShareModal();}});
   }
 
@@ -1215,7 +1255,7 @@ const Platform = (function(){
       setTimeout(()=>$('#shareGatePass')?.focus(),100);
     } else proceed();
   }
-  function renderShareView(cfg){
+  async function renderShareView(cfg){
     $('#shareGate').style.display='none';$('#loginScreen').style.display='none';
     $('#appShell').style.display='flex';
     // hide admin-only chrome
@@ -1223,15 +1263,17 @@ const Platform = (function(){
     $('#sbProjects').style.display='none';$('#sbTools').style.display='none';
     $('#shareBtn').style.display='none';$('#logoutBtn').style.display='none';
     const proj=PROJECTS.find(p=>p.id===cfg.p);if(!proj){return;}
-    currentProject=proj;currentModule=proj.module();currentModule.setData(proj.data());
+    currentProject=proj;currentModule=proj.module();
     document.documentElement.style.setProperty('--brand',proj.accent);
     sharePerm={pages:cfg.pages,kpis:cfg.kpis,charts:cfg.charts,hideNationalId:cfg.hideNationalId};
-    const res=currentModule.render($('#projectHost'),sharePerm);
-    currentPages=res.pages;buildPageNav(res.pages,res.alertCount);
     $('#topProjectName').textContent=proj.name+' — عرض مشترك';
-    // sidebar shows project name only (read-only)
     $('#sbShareLabel').style.display='flex';
     $('#sbShareLabel').innerHTML=`<span class="sb-ic" style="background:${proj.accent}22;color:${proj.accent}">${ic(proj.icon)}</span><span class="sb-tx"><b>${esc(proj.name)}</b><small>عرض مشترك مقيّد</small></span>`;
+    $('#projectHost').innerHTML='<div class="empty" style="padding:80px"><div class="spin" style="margin:0 auto 16px"></div><b>جارٍ التحميل…</b></div>';
+    const loaded=await loadProjectData(proj);
+    currentModule.setData(loaded.data);
+    const res=currentModule.render($('#projectHost'),sharePerm);
+    currentPages=res.pages;buildPageNav(res.pages,res.alertCount);
     if(res.pages.length)goPage(res.pages[0].id);
     $$('.themeBtn').forEach(b=>b.onclick=toggleTheme);
     $('#dbg').onclick=closeDrawer;
