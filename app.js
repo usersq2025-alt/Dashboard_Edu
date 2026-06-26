@@ -9,7 +9,7 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbyhTXvgPIJVJAcxdGp1MqkBatZXou6JA6TDFVordD6jwunYpqHROuvoKUmCQETYoenZ/exec";
 /* إن بقي الرابط الافتراضي، تُقرأ البيانات من data/data.json (مستخرجة من ملفك). */
 
-const FALLBACK_JSON = "data/data.json";
+const FALLBACK_JSON = "data.json";
 const PER_PAGE = 12;
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const MONTH_SHORT = ['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'];
