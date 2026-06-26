@@ -586,7 +586,7 @@ async function load(){
   const s=$('#src');
   if(!useApi){
     applyData(EMBEDDED_DATA);
-    s.innerHTML='<i class="fa-solid fa-database"></i> بيانات مدمجة';
+    if(s) s.innerHTML='<i class="fa-solid fa-database"></i> بيانات مدمجة';
     return;
   }
   try{
@@ -595,11 +595,11 @@ async function load(){
     const j = await res.json();
     if(j.ok===false) throw new Error(j.error||'API error');
     applyData(j);
-    s.innerHTML='<i class="fa-solid fa-bolt"></i> متصل مباشرة'; s.classList.add('live');
+    if(s){ s.innerHTML='<i class="fa-solid fa-bolt"></i> متصل مباشرة'; s.classList.add('live'); }
   }catch(err){
     console.error(err);
     applyData(EMBEDDED_DATA);
-    s.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i> بيانات مدمجة (تعذّر الاتصال)';
+    if(s) s.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i> بيانات مدمجة (تعذّر الاتصال)';
     toast('تعذّر الاتصال بـ Apps Script — عُرضت البيانات المدمجة');
   }
 }
@@ -654,6 +654,10 @@ function opts(c,extra={}){ return {responsive:true,maintainAspectRatio:false,
   scales:{x:{ticks:{color:c.text,font:{family:'IBM Plex Sans Arabic'}},grid:{color:c.grid,display:false}},
           y:{ticks:{color:c.text,font:{family:'IBM Plex Mono'}},grid:{color:c.grid},beginAtZero:true}},...extra}; }
 function kill(){ Object.values(CH).forEach(x=>x&&x.destroy()); CH={}; }
+/* عند تعذّر تحميل مكتبة الرسوم: استبدل كل لوحة رسم برسالة بدل تجميد الصفحة */
+function markChartsUnavailable(){
+  $$('.chart').forEach(el=>{ el.innerHTML='<div style="height:100%;display:grid;place-items:center;color:var(--text-3);font-size:.85rem;text-align:center;padding:10px">تعذّر تحميل مكتبة الرسوم<br>تحقّق من اتصال الإنترنت ثم حدّث الصفحة</div>'; });
+}
 
 /* =================================================================
    OVERVIEW
@@ -686,6 +690,7 @@ function buildOverview(){
   buildOverviewCharts();
 }
 function buildOverviewCharts(){
+  if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
   kill(); const c=ck();
   // coverage stacked per month
   const paidByM = MONTHS.map(m=>DB.children.filter(x=>String(x.months?.[m]).trim()==='✓').length);
@@ -824,6 +829,7 @@ function buildLogistics(){
     kpi('brand','fa-person-walking',totV,'إجمالي الزيارات') +
     kpi('ok','fa-calculator',avg.toFixed(2),'متوسط تكلفة الزيارة (USD)');
   countUp($('#logK'));
+  if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
   const c=ck();
   CH.lt=new Chart($('#chLT'),{type:'bar',data:{labels:L.map(l=>l.month),datasets:[{label:'مواصلات $',data:L.map(l=>l.transport),backgroundColor:c.gold,borderRadius:6}]},options:opts(c,{plugins:{legend:{display:false}}})});
   CH.lv=new Chart($('#chLV'),{type:'bar',data:{labels:L.map(l=>l.month),datasets:[
@@ -854,6 +860,7 @@ function buildEfficiency(){
         <p>مؤشر الكفاءة = (الكفالات النشطة ÷ عدد الزيارات) × 100. بما أن ورقة
         «السجل اللوجستي» لا تحتوي عدد زيارات فعلية بعد، عُرض الجزء المتاح فقط
         (الكفالات النشطة). أدخِل الزيارات لتفعيل المؤشر كاملاً.</p></div>`;
+    if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
     const c=ck();
     CH.effa=new Chart($('#chEffA'),{type:'bar',data:{labels:MONTH_SHORT,datasets:[{label:'كفالات نشطة',data:activeByM,backgroundColor:c.ok,borderRadius:6}]},options:opts(c,{plugins:{legend:{display:false}}})});
     return;
@@ -869,6 +876,7 @@ function buildEfficiency(){
     </div>
     <div class="panel" style="margin-top:18px"><h3><i class="fa-solid fa-gauge"></i> الزيارات مقابل الكفالات النشطة</h3><div class="chart tall"><canvas id="chEff"></canvas></div></div>`;
   countUp(host);
+  if(typeof Chart==='undefined'){ markChartsUnavailable(); return; }
   const c=ck();
   CH.eff=new Chart($('#chEff'),{type:'bar',data:{labels:MONTH_SHORT,datasets:[
     {label:'كفالات نشطة',data:activeByM,backgroundColor:c.ok,borderRadius:6},
@@ -879,6 +887,7 @@ function buildEfficiency(){
    MAP
 ================================================================= */
 function buildMap(){
+  if(typeof L==='undefined'){ const el=$('#map'); if(el) el.innerHTML='<div style="height:100%;display:grid;place-items:center;color:var(--text-3);padding:20px;text-align:center">تعذّر تحميل مكتبة الخريطة — تحقّق من اتصال الإنترنت</div>'; return; }
   if(MAP){ MAP.remove(); MAP=null; }
   MAP=L.map('map',{center:[36.2,37.16],zoom:8});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:18}).addTo(MAP);
@@ -1121,29 +1130,47 @@ function rebuildVisuals(){
   if($('#p-map').classList.contains('active')) buildMap();
 }
 
+/* تشغيل خطوة بأمان: خطأ في خطوة لا يوقف بقية اللوحة */
+function safe(label, fn){ try{ fn(); }catch(e){ console.error('['+label+'] فشل:', e); } }
+function hideLoader(){ const l=$('#loader'); if(l) l.classList.add('hide'); }
+
 async function init(){
+  // ضمان نهائي: مهما حدث، تختفي شاشة التحميل خلال 6 ثوانٍ كحدّ أقصى
+  const failSafe = setTimeout(hideLoader, 6000);
+
   let saved='light'; try{ saved=localStorage.getItem('cd_theme')||'light'; }catch(_){}
-  applyTheme(saved);
-  await load();
-  buildOverview();
-  buildAlerts();
-  buildWorkers();
-  buildLogistics();
-  buildEfficiency();
-  initFilters();
-  initReports();
+  safe('theme',()=>applyTheme(saved));
 
-  $$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
-  $('#theme').onclick=toggleTheme;
-  $('#refresh').onclick=async()=>{ toast('جارٍ التحديث…'); await load(); buildOverview(); buildAlerts(); buildWorkers(); buildLogistics(); buildEfficiency(); renderCards(); initReports(); toast('تم التحديث'); };
-  $('#drawerBg').onclick=closeChild;
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeChild(); });
-  $('#quickPdf').onclick=exportPdf; $('#quickXlsx').onclick=exportXlsx;
-  $('#rpPdf').onclick=exportPdf; $('#rpXlsx').onclick=exportXlsx;
+  try{ await load(); }catch(e){ console.error('load فشل:', e); try{ applyData(EMBEDDED_DATA); }catch(_){ } }
 
-  setTimeout(()=>$('#loader').classList.add('hide'),350);
+  safe('overview',buildOverview);
+  safe('alerts',buildAlerts);
+  safe('workers',buildWorkers);
+  safe('logistics',buildLogistics);
+  safe('efficiency',buildEfficiency);
+  safe('filters',initFilters);
+  safe('reports',initReports);
+
+  safe('events',()=>{
+    $$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.p));
+    $('#theme').onclick=toggleTheme;
+    $('#refresh').onclick=async()=>{ toast('جارٍ التحديث…'); try{ await load(); }catch(_){}
+      safe('o',buildOverview); safe('a',buildAlerts); safe('w',buildWorkers); safe('l',buildLogistics); safe('e',buildEfficiency); safe('c',renderCards); safe('r',initReports); toast('تم التحديث'); };
+    $('#drawerBg').onclick=closeChild;
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeChild(); });
+    $('#quickPdf').onclick=exportPdf; $('#quickXlsx').onclick=exportXlsx;
+    $('#rpPdf').onclick=exportPdf; $('#rpXlsx').onclick=exportXlsx;
+  });
+
+  clearTimeout(failSafe);
+  setTimeout(hideLoader, 250);
+
+  // تنبيه إن غابت مكتبة الرسوم (مثلاً بسبب حظر الإعلانات أو ضعف الشبكة)
+  if(typeof Chart==='undefined') toast('تعذّر تحميل مكتبة الرسوم — تحقّق من اتصال الإنترنت');
 }
-document.addEventListener('DOMContentLoaded',init);
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
+else init();
 
 </script>
 </body>
