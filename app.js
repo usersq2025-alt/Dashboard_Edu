@@ -6,7 +6,7 @@
    =================================================================== */
 
 /* ====== ضع رابط Web App الخاص بـ Apps Script هنا ====== */
-const API_URL = "PUT_YOUR_APPS_SCRIPT_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbyhTXvgPIJVJAcxdGp1MqkBatZXou6JA6TDFVordD6jwunYpqHROuvoKUmCQETYoenZ/exec";
 /* إن بقي الرابط الافتراضي، تُقرأ البيانات من data/data.json (مستخرجة من ملفك). */
 
 const FALLBACK_JSON = "data/data.json";
