@@ -593,6 +593,239 @@ function hashPass(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCod
 <script>
 const EMBEDDED_CHILDREN = {children:[],stats:[],logistics:[],months:MONTHS,currentMonth:'',currentMonthIndex:0,generated:'',source:'none'};
 const EMBEDDED_STUDENTS = {students:[],payments:[],generated:'',source:'none'};
+
+/* ===================================================================
+   مشروع كفالة الأطفال — وحدة العرض (project_children.js)
+   =================================================================== */
+const ChildrenProject = (function(){
+  const UNIT=50;
+  let DB={children:[],stats:[],logistics:[],months:MONTHS,currentMonth:'',currentMonthIndex:0};
+  let cPage=1;
+
+  const isMale=c=>String(c.gender).includes('ذكر');
+  const isOrphan=c=>String(c.orphan).trim()==='نعم';
+  const paidNow=c=>String(c.curMark).trim()==='✓';
+  const isLate=c=>!paidNow(c);
+
+  function setData(j){
+    DB.children=j.children||[];DB.stats=j.stats||[];DB.logistics=j.logistics||[];
+    DB.months=j.months||MONTHS;DB.currentMonth=j.currentMonth||'';
+    DB.currentMonthIndex=j.currentMonthIndex!=null?j.currentMonthIndex:MONTHS.indexOf(DB.currentMonth);
+  }
+  function agg(){
+    const ch=DB.children,males=ch.filter(isMale).length,orphans=ch.filter(isOrphan).length;
+    const paid=ch.filter(paidNow).length,late=ch.length-paid;
+    const yearMarks=ch.reduce((a,c)=>a+n0(c.paidMonths),0);
+    return{total:ch.length,males,females:ch.length-males,orphans,paid,late,
+      coverage:ch.length?Math.round(paid/ch.length*100):0,monthValue:paid*UNIT,yearValue:yearMarks*UNIT,yearMarks};
+  }
+  function workerStats(){
+    const m={};DB.children.forEach(c=>{const w=c.fieldWorker||'غير محدّد';
+      m[w]=m[w]||{name:w,kids:0,paidNow:0,late:0,marks:0,usd:0};m[w].kids++;
+      paidNow(c)?m[w].paidNow++:m[w].late++;m[w].marks+=n0(c.paidMonths);m[w].usd+=n0(c.paidMonths)*UNIT;});
+    return Object.values(m).sort((a,b)=>b.kids-a.kids);
+  }
+
+  /* قائمة الصفحات (للـ sidebar وللمشاركة) */
+  const PAGES=[
+    {id:'overview',label:'النظرة العامة',icon:'gauge'},
+    {id:'alerts',label:'التنبيهات',icon:'bell'},
+    {id:'workers',label:'الميدانيون',icon:'users'},
+    {id:'geo',label:'التوزّع الجغرافي',icon:'pin'},
+    {id:'children',label:'الأطفال',icon:'child'},
+    {id:'reports',label:'التقارير',icon:'file'},
+  ];
+
+  /* عناصر قابلة للإخفاء في المشاركة (KPIs + charts) */
+  const ELEMENTS={
+    kpis:['total','paid','late','monthValue','males','females','orphans','yearValue'],
+    charts:['coverage','money','city','demo'],
+  };
+
+  function render(host,perm){
+    // perm: {pages:[], kpis:[], charts:[], hideNationalId} أو null للمدير الكامل
+    const allowPage=id=>!perm||!perm.pages||perm.pages.includes(id);
+    const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
+    const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
+    const a=agg();
+
+    let pagesHtml='';
+    if(allowPage('overview')) pagesHtml+=pageOverview(a,allowKpi,allowChart);
+    if(allowPage('alerts')) pagesHtml+=pageAlerts(a);
+    if(allowPage('workers')) pagesHtml+=pageWorkers(a);
+    if(allowPage('geo')) pagesHtml+=pageGeo();
+    if(allowPage('children')) pagesHtml+=pageChildren();
+    if(allowPage('reports')) pagesHtml+=pageReports(a);
+    host.innerHTML=pagesHtml;
+
+    // build dynamic content
+    if(allowPage('overview')){buildOverview(a,allowKpi,allowChart);}
+    if(allowPage('alerts'))buildAlerts(a);
+    if(allowPage('workers'))buildWorkers(a);
+    if(allowPage('geo'))buildGeo();
+    if(allowPage('children')){initFilters();renderCards();}
+    if(allowPage('reports'))initReports();
+
+    return {pages:PAGES.filter(p=>allowPage(p.id)),alertCount:a.late};
+  }
+
+  /* ---- pages markup ---- */
+  function pageOverview(a,aK,aC){
+    return `<section class="page active" data-page="overview">
+      <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta">الشهر المرجعي: <b>${DB.currentMonth}</b> · ${a.total} طفل</div></div>
+      <div id="cOvAlert"></div>
+      <div class="slabel">مؤشرات الكفالة الفعلية</div>
+      <div class="kpis" id="cOvKpis"></div>
+      <div class="slabel">التحليل البصري</div>
+      <div class="grid g2" id="cOvCharts"></div>
+    </section>`;
+  }
+  function pageAlerts(a){return `<section class="page" data-page="alerts">
+    <div class="phead"><div><div class="eb">متابعة عاجلة</div><h1>تنبيهات الكفالات المتأخّرة</h1></div></div>
+    <div class="alertbar" id="cAlBanner"></div>
+    <div class="toolbar"><input id="cAlSearch" placeholder="بحث بالاسم أو رقم الصندوق…" /><select id="cAlStreak"><option value="">كل درجات التأخّر</option><option value="2">شهرين فأكثر</option><option value="1">شهر واحد</option></select></div>
+    <div class="alist" id="cAlList"></div></section>`;}
+  function pageWorkers(a){return `<section class="page" data-page="workers">
+    <div class="phead"><div><div class="eb">الأداء الميداني</div><h1>مؤشرات أداء الميدانيين</h1></div></div>
+    <div class="kpis" id="cWkKpis"></div>
+    <div class="slabel">مقارنة الأداء</div>
+    <div class="grid g2"><div class="panel"><h3>عدد الأطفال لكل ميداني</h3><div id="cWkLoad"></div></div><div class="panel"><h3>أشهر التبرّع لكل ميداني</h3><div id="cWkPaid"></div></div></div>
+    <div class="slabel">جدول الأداء</div>
+    <div class="tw"><table class="t" id="cWkTable"><thead><tr><th>الميداني</th><th>الأطفال</th><th>مكفولون</th><th>متأخرون</th><th>أشهر التبرّع</th><th>محصّل</th><th>التغطية</th></tr></thead><tbody></tbody></table></div></section>`;}
+  function pageGeo(){return `<section class="page" data-page="geo">
+    <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الأطفال على المدن</h1></div></div>
+    <div class="panel"><div id="cGeoBody"></div></div></section>`;}
+  function pageChildren(){return `<section class="page" data-page="children">
+    <div class="phead"><div><div class="eb">السجل</div><h1>بطاقات الأطفال</h1></div></div>
+    <div class="toolbar"><input id="cChSearch" placeholder="بحث…"/>
+      <select id="cChGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
+      <select id="cChCity"><option value="">كل المدن</option></select>
+      <select id="cChStatus"><option value="">كل الحالات</option><option value="ok">مكفول</option><option value="late">متأخّر</option><option value="orphan">يتيم</option></select>
+      <span class="cnt" id="cChCount"></span></div>
+    <div class="cards" id="cChGrid"></div><div class="pager" id="cChPager"></div></section>`;}
+  function pageReports(a){return `<section class="page" data-page="reports">
+    <div class="phead"><div><div class="eb">المخرجات</div><h1>التقارير الشهرية والسنوية</h1></div></div>
+    <div class="toolbar"><select id="cRpType"><option value="annual">سنوي شامل</option><option value="monthly">شهري</option></select>
+      <select id="cRpMonth"></select><button class="btn pri" onclick="window.print()">طباعة / PDF</button>
+      <button class="btn gold" id="cRpCsv">تصدير CSV</button></div>
+    <div id="cRpView"></div></section>`;}
+
+  /* ---- builders ---- */
+  function buildOverview(a,aK,aC){
+    $('#cOvAlert').innerHTML=a.late>0?`<div class="alertbar"><div class="big num">${a.late}</div>
+      <div class="tx"><b>كفالة متأخّرة تحتاج متابعة فورية</b><p>${a.late} طفلاً غير مكفول في ${DB.currentMonth} (تغطية ${a.coverage}%).</p></div>
+      <button class="btn pri" onclick="Platform.goPage('alerts')">${ic('chev')} عرض القائمة</button></div>`:'';
+    const K=[];
+    if(aK('total'))K.push(kpi('brand','child',a.total,'إجمالي الأطفال','مسجّلون'));
+    if(aK('paid'))K.push(kpi('ok','heart',a.paid,'مكفولون — '+DB.currentMonth,'تغطية '+a.coverage+'%'));
+    if(aK('late'))K.push(kpi('bad','clock',a.late,'متأخّرون','في '+DB.currentMonth));
+    if(aK('monthValue'))K.push(kpi('gold','money',a.monthValue,'قيمة كفالة الشهر ($)',a.paid+' × $'+UNIT));
+    if(aK('males'))K.push(kpi('male','mars',a.males,'ذكور'));
+    if(aK('females'))K.push(kpi('female','venus',a.females,'إناث'));
+    if(aK('orphans'))K.push(kpi('warn','crack',a.orphans,'الأيتام',Math.round(a.orphans/a.total*100)+'%'));
+    if(aK('yearValue'))K.push(kpi('brand','trend',a.yearValue,'محصّل سنوياً ($)',a.yearMarks+' شهر تبرّع'));
+    $('#cOvKpis').innerHTML=K.join('');countUp($('#cOvKpis'));
+
+    const paidByM=MONTHS.slice(0,6).map(m=>DB.children.filter(c=>String(c.months?.[m]).trim()==='✓').length);
+    const C=[];
+    if(aC('coverage'))C.push(`<div class="panel"><h3>تغطية الكفالة عبر الأشهر <span class="tag">مكفول/غير</span></h3>${svgStacked(MSHORT.slice(0,6),paidByM,paidByM.map(v=>a.total-v))}${legend([{label:'مكفول',color:cssv('--ok')},{label:'غير مكفول',color:cssv('--bad')}])}</div>`);
+    if(aC('money'))C.push(`<div class="panel"><h3>قيمة الكفالات الشهرية ($) <span class="tag">اتجاه</span></h3>${svgLine(MSHORT.slice(0,6),DB.stats.slice(0,6).map(s=>n0(s.total_usd)))}</div>`);
+    if(aC('city')){const cc={};DB.children.forEach(c=>cc[c.city]=(cc[c.city]||0)+1);C.push(`<div class="panel"><h3>توزّع المدن <span class="tag">7 مدن</span></h3>${hbars(Object.entries(cc).sort((x,y)=>y[1]-x[1]).map(([k,v])=>({label:k,value:v})))}</div>`);}
+    if(aC('demo'))C.push(`<div class="panel"><h3>التركيبة العامة <span class="tag">جنس/يُتم</span></h3>${svgDonut([{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')},{label:'أيتام',value:a.orphans,color:cssv('--gold')}],{center:'طفل',centerVal:a.total})}${legend([{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')},{label:'أيتام '+a.orphans,color:cssv('--gold')}])}</div>`);
+    $('#cOvCharts').innerHTML=C.join('');
+  }
+  function buildAlerts(a){
+    const s2=DB.children.filter(c=>isLate(c)&&c.unpaidStreak>=2).length;
+    $('#cAlBanner').innerHTML=`<div class="big num">${a.late}</div><div class="tx"><b>كفالة متأخّرة في ${DB.currentMonth}</b><p>منهم ${s2} متأخّرون لشهرين فأكثر.</p></div>`;
+    const render=()=>{
+      const q=($('#cAlSearch').value||'').trim().toLowerCase(),f=$('#cAlStreak').value;
+      let list=DB.children.filter(isLate);
+      if(f==='2')list=list.filter(c=>c.unpaidStreak>=2);if(f==='1')list=list.filter(c=>c.unpaidStreak===1);
+      if(q)list=list.filter(c=>`${c.name} ${c.box} ${c.city}`.toLowerCase().includes(q));
+      list.sort((a,b)=>b.unpaidStreak-a.unpaidStreak);
+      $('#cAlList').innerHTML=list.length?list.map(c=>{const sc=c.unpaidStreak>=2?'s2':'s1',t=c.unpaidStreak>=2?`متأخّر ${c.unpaidStreak} أشهر`:'متأخّر شهر';
+        return `<div class="arow"><div class="bx num">#${esc(c.box)}</div><div class="wh"><b>${esc(c.name)}</b><span>${esc(c.city)} · ${esc(c.fieldWorker||'—')}</span></div><div class="stk ${sc}">${t}</div><button class="go" onclick="ChildrenProject.openCard('${esc(c.box)}')">${ic('chev')}</button></div>`;}).join(''):emptyState('check','لا كفالات متأخّرة مطابقة','الجميع ضمن النطاق مكفول.');
+    };
+    $('#cAlSearch').oninput=render;$('#cAlStreak').onchange=render;render();
+  }
+  function buildWorkers(a){
+    const W=workerStats();const best=[...W].sort((x,y)=>(y.paidNow/y.kids)-(x.paidNow/x.kids))[0];
+    $('#cWkKpis').innerHTML=kpi('brand','users',W.length,'عدد الميدانيين')+kpi('ok','child',(a.total/W.length).toFixed(1),'متوسط الأطفال/ميداني')+kpi('gold','trophy',best?Math.round(best.paidNow/best.kids*100)+'%':'—','أعلى تغطية',best?best.name:'')+kpi('warn','clock',Math.max(...W.map(w=>w.late)),'أعلى متأخرين');
+    countUp($('#cWkKpis'));
+    $('#cWkLoad').innerHTML=hbars(W.map(w=>({label:w.name,value:w.kids})));
+    $('#cWkPaid').innerHTML=hbars(W.map(w=>({label:w.name,value:w.marks})),{color:cssv('--gold')});
+    $('#cWkTable tbody').innerHTML=W.map(w=>{const cov=Math.round(w.paidNow/w.kids*100);
+      return `<tr><td><b>${esc(w.name)}</b></td><td class="num">${w.kids}</td><td class="num">${w.paidNow}</td><td class="num">${w.late}</td><td class="num">${w.marks}</td><td class="num">${usd(w.usd)}</td><td><span class="chip ${cov>=70?'ok':cov>=40?'warn':'bad'}">${cov}%</span></td></tr>`;}).join('');
+  }
+  function buildGeo(){
+    const cc={};DB.children.forEach(c=>{cc[c.city]=cc[c.city]||{m:0,f:0};isMale(c)?cc[c.city].m++:cc[c.city].f++;});
+    const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));const max=Math.max(...rows.map(([,v])=>v.m+v.f));
+    $('#cGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f;
+      return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')}])}`;
+  }
+  function initFilters(){
+    $('#cChCity').innerHTML='<option value="">كل المدن</option>'+[...new Set(DB.children.map(c=>c.city))].sort().map(c=>`<option>${esc(c)}</option>`).join('');
+    ['#cChSearch','#cChGender','#cChCity','#cChStatus'].forEach(s=>$(s).addEventListener('input',()=>{cPage=1;renderCards();}));
+  }
+  function filterChildren(){
+    const q=($('#cChSearch').value||'').trim().toLowerCase(),g=$('#cChGender').value,city=$('#cChCity').value,st=$('#cChStatus').value;
+    return DB.children.filter(c=>{if(g&&c.gender!==g)return false;if(city&&c.city!==city)return false;
+      if(st==='ok'&&!paidNow(c))return false;if(st==='late'&&!isLate(c))return false;if(st==='orphan'&&!isOrphan(c))return false;
+      if(q&&!`${c.name} ${c.box} ${c.city}`.toLowerCase().includes(q))return false;return true;});
+  }
+  function renderCards(){
+    const list=filterChildren();$('#cChCount').textContent=list.length+' طفل';
+    const pages=Math.max(1,Math.ceil(list.length/12));if(cPage>pages)cPage=1;
+    const slice=list.slice((cPage-1)*12,cPage*12),grid=$('#cChGrid');
+    if(!slice.length){grid.innerHTML=`<div style="grid-column:1/-1">${emptyState('search','لا نتائج','غيّر البحث.')}</div>`;$('#cChPager').innerHTML='';return;}
+    grid.innerHTML=slice.map(c=>{const m=isMale(c);
+      const sc=paidNow(c)?`<span class="chip ok">${ic('check')} مكفول</span>`:(c.unpaidStreak>=2?`<span class="chip bad">${ic('clock')} متأخّر شهرين+</span>`:`<span class="chip warn">${ic('clock')} متأخّر</span>`);
+      const strip=MONTHS.slice(0,DB.currentMonthIndex+1).map(mn=>{const v=String(c.months?.[mn]).trim();return `<i class="${v==='✓'?'p':v==='✗'?'x':''}"></i>`;}).join('');
+      return `<div class="card ${m?'m':'f'}" onclick="ChildrenProject.openCard('${esc(c.box)}')">
+        <div class="hd"><div class="av">${esc((c.name||'؟').charAt(0))}</div><div class="ht"><b>${esc(c.name)}</b><span>${esc(c.city)}</span></div></div>
+        <div class="bd"><div class="rw"><span>الجنس/العمر</span><b>${esc(c.gender)} · ${esc(c.age??'—')}</b></div>
+          <div class="rw"><span>المرحلة</span><b>${esc(c.stage||'—')}</b></div><div class="rw"><span>الميداني</span><b>${esc(c.fieldWorker||'—')}</b></div>
+          <div class="rw"><span>اليُتم</span><b>${isOrphan(c)?'يتيم':'لا'}</b></div><div class="strip">${strip}</div>
+          <div class="ft">${sc}<span class="dt num">#${esc(c.box)}</span></div></div></div>`;}).join('');
+    let p=`<button ${cPage===1?'disabled':''} onclick="ChildrenProject.setPage(${cPage-1})">${ic('chev')}</button>`;
+    for(let i=1;i<=pages;i++){if(pages>7&&Math.abs(i-cPage)>2&&i!==1&&i!==pages){if(i===2||i===pages-1)p+=`<button disabled>…</button>`;continue;}p+=`<button class="${i===cPage?'active':''}" onclick="ChildrenProject.setPage(${i})">${i}</button>`;}
+    p+=`<button ${cPage===pages?'disabled':''} onclick="ChildrenProject.setPage(${cPage+1})" style="transform:scaleX(-1)">${ic('chev')}</button>`;
+    $('#cChPager').innerHTML=p;
+  }
+  function openCard(box){
+    const c=DB.children.find(x=>String(x.box)===String(box));if(!c)return;const m=isMale(c);
+    const cells=MONTHS.map((mn,i)=>{const v=String(c.months?.[mn]).trim(),cls=v==='✓'?'p':v==='✗'?'x':'b',sym=v==='✓'?'✓':v==='✗'?'✗':'—';return `<div class="dm ${cls}"><small>${MSHORT[i]}</small>${sym}</div>`;}).join('');
+    const st=paidNow(c)?'<span class="chip ok">مكفول حالياً</span>':`<span class="chip ${c.unpaidStreak>=2?'bad':'warn'}">متأخّر ${c.unpaidStreak} شهر</span>`;
+    Platform.openDrawer(m?'':'f',(c.name||'؟').charAt(0),c.name,`صندوق #${esc(c.box)} · ${esc(c.city)} · ${esc(c.gender)}`,st,`
+      <div class="ds"><h4>${ic('id')} الهوية</h4><div class="dg">${df('العمر',c.age)}${df('تاريخ الميلاد',c.birthdate)}${df('المدينة',c.city)}${df('اليُتم',c.orphan)}${df('هاتف ولي الأمر',c.guardianPhone)}${df('الحالة النفسية',c.psych)}</div></div>
+      <div class="ds"><h4>${ic('cap')} الأكاديمي</h4><div class="dg">${df('المرحلة',c.stage)}${df('الصف',c.grade)}${df('الانتظام',c.attendance)}${df('العمل السابق',c.prevWork)}${df('سبب الانقطاع',c.dropReason,true)}</div></div>
+      <div class="ds"><h4>${ic('users')} المتابعة</h4><div class="dg">${df('الميداني',c.fieldWorker)}${df('تاريخ الزيارة',c.visitDate)}${df('احتياج إضافي',c.extraNeed)}${c.boxLink?`<div class="df full"><div class="k">رابط الصندوق</div><div class="vv"><a href="${esc(c.boxLink)}" target="_blank" rel="noopener">${ic('link')} فتح</a></div></div>`:''}</div></div>
+      <div class="ds"><h4>${ic('cal')} سجل التبرّعات (${c.paidMonths} شهر)</h4><div class="dms">${cells}</div></div>
+      <div class="ds"><h4>${ic('money')} الكفالة المالية</h4><div class="dg">${df('أشهر التبرّع',c.paidMonths)}${df('إجمالي الكفالة',usd(n0(c.paidMonths)*UNIT))}${df('الحسم',(c.discount||0)+'%')}${df('الصافي',usd(c.net_usd||n0(c.paidMonths)*UNIT))}</div></div>`);
+  }
+  function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
+  function initReports(){
+    $('#cRpMonth').innerHTML=DB.stats.map(s=>`<option>${esc(s.month)}</option>`).join('');
+    const r=()=>{$('#cRpView').innerHTML=$('#cRpType').value==='annual'?annual():monthly($('#cRpMonth').value);countUp($('#cRpView'));};
+    $('#cRpType').onchange=()=>{$('#cRpMonth').style.display=$('#cRpType').value==='monthly'?'block':'none';r();};
+    $('#cRpMonth').onchange=r;$('#cRpMonth').style.display='none';$('#cRpCsv').onclick=exportCSV;r();
+  }
+  function annual(){const a=agg(),tot=DB.stats.reduce((x,s)=>x+n0(s.total_usd),0);
+    return `<div class="kpis">${kpi('brand','child',a.total,'إجمالي الأطفال')}${kpi('ok','heart',a.yearMarks,'مجموع أشهر التبرّع')}${kpi('gold','money',tot,'إجمالي الكفالات ($)')}${kpi('warn','crack',a.orphans,'الأيتام')}</div>
+    <div class="slabel">الملخّص الشهري</div><div class="tw"><table class="t"><thead><tr><th>الشهر</th><th>مكفول</th><th>غير مكفول</th><th>التغطية</th><th>القيمة</th></tr></thead><tbody>${DB.stats.map(s=>`<tr><td>${esc(s.month)}</td><td class="num">${fmt(s.sponsored)}</td><td class="num">${fmt(s.unsponsored)}</td><td class="num">${Math.round(n0(s.coverage)*100)}%</td><td class="num">${usd(s.total_usd)}</td></tr>`).join('')}</tbody></table></div>`;}
+  function monthly(month){const s=DB.stats.find(x=>x.month===month);if(!s)return emptyState('file','لا بيانات','');
+    const late=DB.children.filter(c=>String(c.months?.[month]).trim()!=='✓');
+    return `<div class="kpis">${kpi('ok','heart',n0(s.sponsored),'مكفولون — '+month)}${kpi('bad','clock',n0(s.unsponsored),'غير مكفولين')}${kpi('gold','money',n0(s.total_usd),'القيمة ($)')}${kpi('brand','percent',Math.round(n0(s.coverage)*100),'التغطية %')}</div>
+    <div class="slabel">غير المكفولين في ${month} (${late.length})</div><div class="tw"><table class="t"><thead><tr><th>#</th><th>الاسم</th><th>المدينة</th><th>الميداني</th></tr></thead><tbody>${late.map(c=>`<tr><td class="num">${esc(c.box)}</td><td>${esc(c.name)}</td><td>${esc(c.city)}</td><td>${esc(c.fieldWorker||'—')}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center">الجميع مكفول 🎉</td></tr>'}</tbody></table></div>`;}
+  function exportCSV(){
+    const head=['رقم الصندوق','الاسم','الجنس','المدينة','العمر','المرحلة','الميداني','أشهر التبرّع','الحالة','تأخّر'];
+    const rows=DB.children.map(c=>[c.box,c.name,c.gender,c.city,c.age,c.stage,c.fieldWorker,c.paidMonths,paidNow(c)?'مكفول':'متأخّر',c.unpaidStreak]);
+    Platform.downloadCSV([head,...rows],'الأطفال');
+  }
+
+  return {setData,render,openCard,setPage:i=>{cPage=i;renderCards();},PAGES,ELEMENTS,agg};
+})();
+
 /* ===================================================================
    مشروع الطلبة الجامعيين — وحدة العرض (project_students.js)
    داشبورد مخصّص: أكاديمي + مالي. مختلف بنيوياً عن مشروع الأطفال.
