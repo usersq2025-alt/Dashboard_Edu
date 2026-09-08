@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>منصّة إدارة المشاريع الإنسانية</title>
+<!-- Leaflet.js (أول مكتبة خارجية — تُستخدم فقط لعرض خريطة تفاعلية في صفحات "التوزّع الجغرافي"؛ الكود يتحقق من توفّرها ويتجاوزها بأمان عند فشل التحميل) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ===================================================================
    الطفولة المكسورة — لوحة الإدارة التنفيذية (مستقلّة بالكامل، بلا إنترنت)
@@ -521,6 +524,34 @@ function hbars(data,opts={}){
       <div class="hbt"><div class="hbf" style="width:${w}%;background:${d.color||def}"></div></div>
       <div class="hbv num">${d.value}</div></div>`;}).join('')}</div>`;
 }
+/* ---------- خريطة تفاعلية (Leaflet) — تُستدعى من صفحات "التوزّع الجغرافي" ----------
+   records: [{lat,lng,gender,name,city,onClick}] — onClick اختياري: يُستدعى عند الضغط على زر البطاقة بالبالون.
+   يعيد null بأمان إن كانت مكتبة Leaflet غير محمّلة (تعطّل CDN) أو العنصر غير موجود، دون أي أثر على بقية الصفحة. */
+function renderGeoMap(mapId,records){
+  const el=document.getElementById(mapId);
+  if(!el||!window.L)return null;
+  const map=L.map(mapId,{scrollWheelZoom:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'&copy; OpenStreetMap contributors',maxZoom:18
+  }).addTo(map);
+  const maleColor=cssv('--male'),femaleColor=cssv('--female');
+  const pts=records.filter(r=>r.lat&&r.lng);
+  const markers=pts.map(r=>{
+    const isMale=String(r.gender).includes('ذكر');
+    const m=L.circleMarker([r.lat,r.lng],{
+      radius:6,weight:1,color:'#fff',fillColor:isMale?maleColor:femaleColor,fillOpacity:.9
+    }).addTo(map);
+    m.bindPopup(`<b>${esc(r.name||'')}</b><br>${esc(r.city||'')}${r.onClick?`<br><button class="btn pri geoPopBtn" style="margin-top:6px;padding:4px 10px;font-size:12px">فتح البطاقة</button>`:''}`);
+    m.on('popupopen',e=>{
+      const btn=e.popup.getElement()?.querySelector('.geoPopBtn');
+      if(btn)btn.onclick=()=>r.onClick&&r.onClick();
+    });
+    return m;
+  });
+  if(markers.length){map.fitBounds(L.featureGroup(markers).getBounds(),{padding:[20,20],maxZoom:11});}
+  else{map.setView([35.9,36.6],7);}
+  return map;
+}
 function svgStacked(labels,A,B,opts={}){
   const W=opts.w||560,H=opts.h||260,pad={t:14,r:10,b:34,l:38};
   const totals=labels.map((_,i)=>A[i]+B[i]),max=Math.max(1,...totals);
@@ -593,6 +624,7 @@ function hashPass(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCod
 <script>
 const EMBEDDED_CHILDREN = {children:[],stats:[],logistics:[],months:MONTHS,currentMonth:'',currentMonthIndex:0,generated:'',source:'none'};
 const EMBEDDED_STUDENTS = {students:[],payments:[],generated:'',source:'none'};
+const EMBEDDED_ORPHANS_SCHOOL = {students:[],generated:'',source:'none'};
 
 /* ===================================================================
    مشروع كفالة الأطفال — وحدة العرض (project_children.js)
@@ -601,6 +633,7 @@ const ChildrenProject = (function(){
   const UNIT=50;
   let DB={children:[],stats:[],logistics:[],months:MONTHS,currentMonth:'',currentMonthIndex:0};
   let cPage=1;
+  let geoMap=null;
 
   const isMale=c=>String(c.gender).includes('ذكر');
   const isOrphan=c=>String(c.orphan).trim()==='نعم';
@@ -694,6 +727,7 @@ const ChildrenProject = (function(){
     <div class="tw"><table class="t" id="cWkTable"><thead><tr><th>الميداني</th><th>الأطفال</th><th>مكفولون</th><th>متأخرون</th><th>أشهر التبرّع</th><th>محصّل</th><th>التغطية</th></tr></thead><tbody></tbody></table></div></section>`;}
   function pageGeo(){return `<section class="page" data-page="geo">
     <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الأطفال على المدن</h1></div></div>
+    <div class="panel" style="padding:8px"><div id="cGeoMap" style="height:420px;border-radius:10px;overflow:hidden"></div></div>
     <div class="panel"><div id="cGeoBody"></div></div></section>`;}
   function pageChildren(){return `<section class="page" data-page="children">
     <div class="phead"><div><div class="eb">السجل</div><h1>بطاقات الأطفال</h1></div></div>
@@ -758,6 +792,11 @@ const ChildrenProject = (function(){
       return `<tr><td><b>${esc(w.name)}</b></td><td class="num">${w.kids}</td><td class="num">${w.paidNow}</td><td class="num">${w.late}</td><td class="num">${w.marks}</td><td class="num">${usd(w.usd)}</td><td><span class="chip ${cov>=70?'ok':cov>=40?'warn':'bad'}">${cov}%</span></td></tr>`;}).join('');
   }
   function buildGeo(){
+    if(geoMap){geoMap.remove();geoMap=null;}
+    if(window.L){
+      const records=DB.children.filter(c=>c.lat&&c.lng).map(c=>({lat:c.lat,lng:c.lng,gender:c.gender,name:c.name,city:c.city,onClick:()=>ChildrenProject.openCard(c.box)}));
+      geoMap=renderGeoMap('cGeoMap',records);
+    }
     const cc={};DB.children.forEach(c=>{cc[c.city]=cc[c.city]||{m:0,f:0};isMale(c)?cc[c.city].m++:cc[c.city].f++;});
     const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));const max=Math.max(...rows.map(([,v])=>v.m+v.f));
     $('#cGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f;
@@ -833,6 +872,7 @@ const ChildrenProject = (function(){
 const StudentsProject = (function(){
   let DB={students:[],payments:[]};
   let sPage=1;
+  let geoMap=null;
 
   const isMale=s=>String(s.gender).includes('ذكر');
   const hasFinance=()=>DB.payments.length>0 || DB.students.some(s=>n0(s.payCount)>0||n0(s.totalIn)>0);
@@ -915,6 +955,7 @@ const StudentsProject = (function(){
     <div id="sFinContent"></div></section>`;}
   function secGeo(){return `<section class="page" data-page="geo">
     <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الطلاب على المدن</h1></div></div>
+    <div class="panel" style="padding:8px"><div id="sGeoMap" style="height:420px;border-radius:10px;overflow:hidden"></div></div>
     <div class="panel"><div id="sGeoBody"></div></div></section>`;}
   function secStudents(){return `<section class="page" data-page="students">
     <div class="phead"><div><div class="eb">السجل</div><h1>بطاقات الطلاب</h1></div></div>
@@ -988,6 +1029,12 @@ const StudentsProject = (function(){
     $('#sFinRate').innerHTML=svgDonut([{label:'محصّل',value:a.totalPaid,color:cssv('--ok')},{label:'متبقّي',value:a.balance,color:cssv('--bad')}],{center:a.collectRate+'%',centerVal:a.collectRate+'%'});
   }
   function buildGeo(){
+    if(geoMap){geoMap.remove();geoMap=null;}
+    if(window.L){
+      const records=[];
+      DB.students.forEach((s,i)=>{if(s.lat&&s.lng)records.push({lat:s.lat,lng:s.lng,gender:s.gender,name:s.name,city:s.city,onClick:()=>StudentsProject.openCard(i,0)});});
+      geoMap=renderGeoMap('sGeoMap',records);
+    }
     const cc={};DB.students.forEach(s=>{const c=s.city||'غير محدّد';cc[c]=cc[c]||{m:0,f:0};isMale(s)?cc[c].m++:cc[c].f++;});
     const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));const max=Math.max(...rows.map(([,v])=>v.m+v.f));
     $('#sGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f;
@@ -1058,6 +1105,190 @@ const StudentsProject = (function(){
 
   return {setData,render,openCard,setPage:i=>{sPage=i;renderCards();},PAGES,ELEMENTS,agg};
 })();
+
+/* ===================================================================
+   مشروع مدرسة ملهم للأيتام في إدلب — وحدة العرض (project_orphans_school.js)
+   ⚠️ مشروع جديد غير مفعّل بعد — لا وجود له في PROJECTS ولا في تسجيل الدخول.
+   مبنيّ على نفس بنية وأسلوب ChildrenProject تماماً.
+   =================================================================== */
+const OrphansSchoolProject = (function(){
+  let DB={students:[]};
+  let oPage=1;
+  let geoMap=null;
+
+  const isMale=s=>String(s.gender).includes('ذكر');
+  const isSponsored=s=>s.sponsored===true||String(s.sponsored).trim()==='نعم';
+
+  function setData(j){DB.students=j.students||[];}
+
+  function agg(){
+    const S=DB.students,males=S.filter(isMale).length,sponsored=S.filter(isSponsored).length;
+    const progVals=S.map(s=>n0(s.progressPct)).filter(v=>v>0);
+    const avgProgress=progVals.length?Math.round(progVals.reduce((a,b)=>a+b,0)/progVals.length):0;
+    return{total:S.length,males,females:S.length-males,sponsored,unsponsored:S.length-sponsored,avgProgress};
+  }
+
+  /* قائمة الصفحات (للـ sidebar وللمشاركة) */
+  const PAGES=[
+    {id:'overview',label:'النظرة العامة',icon:'gauge'},
+    {id:'geo',label:'التوزّع الجغرافي',icon:'pin'},
+    {id:'students',label:'بطاقات الطلاب',icon:'child'},
+    {id:'reports',label:'التقارير',icon:'file'},
+  ];
+
+  /* عناصر قابلة للإخفاء في المشاركة (KPIs + charts) */
+  const ELEMENTS={
+    kpis:['total','males','females','sponsored','unsponsored','avgProgress'],
+    charts:['gender','city','grade','displaced'],
+  };
+
+  function render(host,perm){
+    const allowPage=id=>!perm||!perm.pages||perm.pages.includes(id);
+    const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
+    const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
+    const a=agg();
+
+    let pagesHtml='';
+    if(allowPage('overview'))pagesHtml+=pageOverview(a,allowKpi,allowChart);
+    if(allowPage('geo'))pagesHtml+=pageGeo();
+    if(allowPage('students'))pagesHtml+=pageStudents();
+    if(allowPage('reports'))pagesHtml+=pageReports();
+    host.innerHTML=pagesHtml;
+
+    // build dynamic content
+    if(allowPage('overview')){buildOverview(a,allowKpi,allowChart);}
+    if(allowPage('geo'))buildGeo();
+    if(allowPage('students')){initFilters();renderCards();}
+    if(allowPage('reports'))initReports();
+
+    return {pages:PAGES.filter(p=>allowPage(p.id)),alertCount:0};
+  }
+
+  /* ---- pages markup ---- */
+  function pageOverview(a,aK,aC){
+    return `<section class="page active" data-page="overview">
+      <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta">${a.total} طالب</div></div>
+      <div class="slabel">المؤشرات العامة</div>
+      <div class="kpis" id="oOvKpis"></div>
+      <div class="slabel">التحليل البصري</div>
+      <div class="grid g2" id="oOvCharts"></div>
+    </section>`;
+  }
+  function pageGeo(){return `<section class="page" data-page="geo">
+    <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الطلاب على المدن</h1></div></div>
+    <div class="panel" style="padding:8px"><div id="oGeoMap" style="height:420px;border-radius:10px;overflow:hidden"></div></div>
+    <div class="panel"><div id="oGeoBody"></div></div></section>`;}
+  function pageStudents(){return `<section class="page" data-page="students">
+    <div class="phead"><div><div class="eb">السجل</div><h1>بطاقات الطلاب</h1></div></div>
+    <div class="toolbar"><input id="oStSearch" placeholder="بحث بالاسم أو رقم الصندوق أو المدينة…"/>
+      <select id="oStGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option></select>
+      <select id="oStCity"><option value="">كل المدن</option></select>
+      <select id="oStGrade"><option value="">كل الصفوف</option></select>
+      <select id="oStSponsor"><option value="">كل الحالات</option><option value="yes">مكفول</option><option value="no">غير مكفول</option></select>
+      <span class="cnt" id="oStCount"></span></div>
+    <div class="cards" id="oStGrid"></div><div class="pager" id="oStPager"></div></section>`;}
+  function pageReports(){return `<section class="page" data-page="reports">
+    <div class="phead"><div><div class="eb">المخرجات</div><h1>التقارير</h1></div></div>
+    <div class="toolbar"><button class="btn pri" onclick="window.print()">طباعة / PDF</button>
+      <button class="btn gold" id="oRpCsv">تصدير CSV</button></div>
+    <div id="oRpView"></div></section>`;}
+
+  /* ---- builders ---- */
+  function buildOverview(a,aK,aC){
+    const K=[];
+    if(aK('total'))K.push(kpi('brand','child',a.total,'إجمالي الطلاب','مسجّلون'));
+    if(aK('males'))K.push(kpi('male','mars',a.males,'ذكور'));
+    if(aK('females'))K.push(kpi('female','venus',a.females,'إناث'));
+    if(aK('sponsored'))K.push(kpi('ok','heart',a.sponsored,'مكفولون'));
+    if(aK('unsponsored'))K.push(kpi('bad','clock',a.unsponsored,'غير مكفولين'));
+    if(aK('avgProgress'))K.push(kpi('gold','percent',a.avgProgress,'متوسط نسبة الإنجاز %'));
+    $('#oOvKpis').innerHTML=K.join('');countUp($('#oOvKpis'));
+
+    const C=[];
+    if(aC('gender'))C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut([{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')}],{center:'طالب',centerVal:a.total})}${legend([{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')}])}</div>`);
+    if(aC('city')){const cc=topCounts(s=>s.city,8);C.push(`<div class="panel"><h3>توزّع المدن <span class="tag">أعلى 8</span></h3>${hbars(cc)}</div>`);}
+    if(aC('grade')){const gc=topCounts(s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع</span></h3>${hbars(gc,{color:cssv('--gold')})}</div>`);}
+    if(aC('displaced')){const disp=DB.students.filter(s=>String(s.displaced).trim()==='نازح').length;C.push(`<div class="panel"><h3>نازح/مقيم <span class="tag">Ratio</span></h3>${svgDonut([{label:'نازح',value:disp,color:cssv('--warn')},{label:'مقيم',value:a.total-disp,color:cssv('--brand')}],{center:'طالب',centerVal:a.total})}${legend([{label:'نازح '+disp,color:cssv('--warn')},{label:'مقيم '+(a.total-disp),color:cssv('--brand')}])}</div>`);}
+    $('#oOvCharts').innerHTML=C.join('');
+  }
+  function buildGeo(){
+    if(geoMap){geoMap.remove();geoMap=null;}
+    if(window.L){
+      const records=DB.students.filter(s=>s.lat&&s.lng).map(s=>({lat:s.lat,lng:s.lng,gender:s.gender,name:s.name,city:s.city,onClick:()=>OrphansSchoolProject.openCard(s.box)}));
+      geoMap=renderGeoMap('oGeoMap',records);
+    }
+    const cc={};DB.students.forEach(s=>{cc[s.city]=cc[s.city]||{m:0,f:0};isMale(s)?cc[s.city].m++:cc[s.city].f++;});
+    const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));const max=Math.max(...rows.map(([,v])=>v.m+v.f));
+    $('#oGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f;
+      return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')}])}`;
+  }
+  function initFilters(){
+    $('#oStCity').innerHTML='<option value="">كل المدن</option>'+[...new Set(DB.students.map(s=>s.city))].filter(Boolean).sort().map(c=>`<option>${esc(c)}</option>`).join('');
+    $('#oStGrade').innerHTML='<option value="">كل الصفوف</option>'+[...new Set(DB.students.map(s=>s.grade))].filter(Boolean).sort().map(g=>`<option>${esc(g)}</option>`).join('');
+    ['#oStSearch','#oStGender','#oStCity','#oStGrade','#oStSponsor'].forEach(s=>$(s).addEventListener('input',()=>{oPage=1;renderCards();}));
+  }
+  function filterStudents(){
+    const q=($('#oStSearch').value||'').trim().toLowerCase(),g=$('#oStGender').value,city=$('#oStCity').value,grade=$('#oStGrade').value,sp=$('#oStSponsor').value;
+    return DB.students.filter(s=>{if(g&&s.gender!==g)return false;if(city&&s.city!==city)return false;if(grade&&s.grade!==grade)return false;
+      if(sp==='yes'&&!isSponsored(s))return false;if(sp==='no'&&isSponsored(s))return false;
+      if(q&&!`${s.name} ${s.box} ${s.city}`.toLowerCase().includes(q))return false;return true;});
+  }
+  function renderCards(){
+    const list=filterStudents();$('#oStCount').textContent=list.length+' طالب';
+    const pages=Math.max(1,Math.ceil(list.length/12));if(oPage>pages)oPage=1;
+    const slice=list.slice((oPage-1)*12,oPage*12),grid=$('#oStGrid');
+    if(!slice.length){grid.innerHTML=`<div style="grid-column:1/-1">${emptyState('search','لا نتائج','غيّر البحث.')}</div>`;$('#oStPager').innerHTML='';return;}
+    grid.innerHTML=slice.map(s=>{const m=isMale(s);
+      const sc=isSponsored(s)?`<span class="chip ok">${ic('check')} مكفول</span>`:`<span class="chip warn">${ic('clock')} غير مكفول</span>`;
+      return `<div class="card ${m?'m':'f'}" onclick="OrphansSchoolProject.openCard('${esc(s.box)}')">
+        <div class="hd"><div class="av">${esc((s.name||'؟').charAt(0))}</div><div class="ht"><b>${esc(s.name)}</b><span>${esc(s.city||'—')}</span></div></div>
+        <div class="bd"><div class="rw"><span>الجنس/العمر</span><b>${esc(s.gender)} · ${esc(s.age??'—')}</b></div>
+          <div class="rw"><span>المعيل</span><b>${esc(s.guardian||'—')}</b></div>
+          <div class="rw"><span>الصف الدراسي</span><b>${esc(s.grade||'—')}</b></div>
+          <div class="rw"><span>الحالة الصحية</span><b>${esc(s.healthStatus||'—')}</b></div>
+          <div class="ft">${sc}<span class="dt num">#${esc(s.box)}</span></div></div></div>`;}).join('');
+    let p=`<button ${oPage===1?'disabled':''} onclick="OrphansSchoolProject.setPage(${oPage-1})">${ic('chev')}</button>`;
+    for(let i=1;i<=pages;i++){if(pages>7&&Math.abs(i-oPage)>2&&i!==1&&i!==pages){if(i===2||i===pages-1)p+=`<button disabled>…</button>`;continue;}p+=`<button class="${i===oPage?'active':''}" onclick="OrphansSchoolProject.setPage(${i})">${i}</button>`;}
+    p+=`<button ${oPage===pages?'disabled':''} onclick="OrphansSchoolProject.setPage(${oPage+1})" style="transform:scaleX(-1)">${ic('chev')}</button>`;
+    $('#oStPager').innerHTML=p;
+  }
+  function openCard(box){
+    const s=DB.students.find(x=>String(x.box)===String(box));if(!s)return;const m=isMale(s);
+    const st=isSponsored(s)?'<span class="chip ok">مكفول</span>':'<span class="chip warn">غير مكفول</span>';
+    Platform.openDrawer(m?'':'f',(s.name||'؟').charAt(0),s.name,`صندوق #${esc(s.box)} · ${esc(s.city||'—')} · ${esc(s.gender)}`,st,`
+      <div class="ds"><h4>${ic('id')} معلومات أساسية</h4><div class="dg">${df('الاسم الثلاثي',s.name)}${df('اسم الأم',s.motherName)}${df('الجنس',s.gender)}${df('تاريخ الميلاد',s.birthdate)}${df('العمر',s.age)}${df('رقم التواصل',s.phone)}</div></div>
+      <div class="ds"><h4>${ic('users')} المعيل والسكن</h4><div class="dg">${df('المعيل',s.guardian)}${df('صفة المعيل',s.guardianRelation)}${df('الرقم الوطني للمعيل',s.guardianNationalId)}${df('المدينة',s.city)}${df('نازح/مقيم',s.displaced)}</div></div>
+      <div class="ds"><h4>${ic('cap')} الصحة والتعليم</h4><div class="dg">${df('الحالة الصحية',s.healthStatus)}${df('الصف الدراسي',s.grade)}${df('الفوج',s.cohort)}</div></div>
+      <div class="ds"><h4>${ic('heart')} الكفالة</h4><div class="dg">${df('هل مكفول',s.sponsored===true?'نعم':(s.sponsored||'—'))}${df('تاريخ بدء الكفالة',s.sponsorStart)}${df('تاريخ إيقاف الصندوق',s.stopDate)}${s.boxLink?`<div class="df full"><div class="k">رابط الصندوق</div><div class="vv"><a href="${esc(s.boxLink)}" target="_blank" rel="noopener">${ic('link')} فتح</a></div></div>`:''}</div></div>
+      <div class="ds"><h4>${ic('trend')} بيانات المنصة (تلقائي)</h4><div class="dg">${df('حالة الكفالة',s.platformStatus)}${df('اسم الراعي',s.sponsorName)}${df('قيمة الكفالة الشهرية',s.monthlyAmount!=null?usd(s.monthlyAmount):'—')}${df('إجمالي الداخل',s.totalIn!=null?usd(s.totalIn):'—')}${df('إجمالي المدفوع',s.totalPaid!=null?usd(s.totalPaid):'—')}${df('الرصيد المتبقي',s.remainingBalance!=null?usd(s.remainingBalance):'—')}${df('نسبة الإنجاز',s.progressPct!=null?s.progressPct+'%':'—')}${df('عدد التبرعات',s.donationsCount)}${df('آخر مزامنة',s.lastSync,true)}</div></div>`);
+  }
+  function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
+  function initReports(){
+    const r=()=>{$('#oRpView').innerHTML=report();countUp($('#oRpView'));};
+    $('#oRpCsv').onclick=exportCSV;r();
+  }
+  function report(){
+    const a=agg();
+    const cityC=topCounts(s=>s.city,100),gradeC=topCounts(s=>s.grade,100);
+    return `<div class="kpis">${kpi('brand','child',a.total,'إجمالي الطلاب')}${kpi('ok','heart',a.sponsored,'مكفولون')}${kpi('bad','clock',a.unsponsored,'غير مكفولين')}${kpi('gold','percent',a.avgProgress,'متوسط الإنجاز %')}</div>
+      <div class="slabel">ملخّص حسب المدينة</div>
+      <div class="tw"><table class="t"><thead><tr><th>المدينة</th><th>عدد الطلاب</th></tr></thead><tbody>${cityC.map(u=>`<tr><td>${esc(u.label)}</td><td class="num">${u.value}</td></tr>`).join('')}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${a.total}</td></tr></tfoot></table></div>
+      <div class="slabel">ملخّص حسب الصف الدراسي</div>
+      <div class="tw"><table class="t"><thead><tr><th>الصف</th><th>عدد الطلاب</th></tr></thead><tbody>${gradeC.map(u=>`<tr><td>${esc(u.label)}</td><td class="num">${u.value}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  function exportCSV(){
+    const head=['رقم الصندوق','الاسم','الجنس','المدينة','الصف الدراسي','المعيل','الحالة الصحية','مكفول','نسبة الإنجاز'];
+    const rows=DB.students.map(s=>[s.box,s.name,s.gender,s.city,s.grade,s.guardian,s.healthStatus,isSponsored(s)?'نعم':'لا',s.progressPct]);
+    Platform.downloadCSV([head,...rows],'مدرسة_الأيتام');
+  }
+
+  /* helpers */
+  function topCounts(fn,limit){const m={};DB.students.forEach(s=>{const k=fn(s)||'غير محدّد';m[k]=(m[k]||0)+1;});
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([label,value])=>({label,value}));}
+
+  return {setData,render,openCard,setPage:i=>{oPage=i;renderCards();},PAGES,ELEMENTS,agg};
+})();
+/* ⚠️ لتفعيل هذا المشروع: أضيفي عنصراً له بمصفوفة PROJECTS بكائن Platform (id, name, sub, icon:'building', accent, data:()=>EMBEDDED_ORPHANS_SCHOOL, module:()=>OrphansSchoolProject, apiUrl) بعد نشر الـ Apps Script الخاص به */
 
 </script>
 <script>
