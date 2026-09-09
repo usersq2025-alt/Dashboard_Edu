@@ -197,7 +197,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .georow{display:grid;grid-template-columns:160px 1fr auto;align-items:center;gap:12px}
 .georow .cn{font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .georow .gt{height:22px;background:var(--bg2);border-radius:7px;overflow:hidden;display:flex}
-.georow .gm{background:var(--male)}.georow .gf{background:var(--female)}
+.georow .gm{background:var(--male)}.georow .gf{background:var(--female)}.georow .gu{background:var(--text3)}
 .georow .gv{font-weight:800;font-size:.85rem;min-width:30px;text-align:left}
 
 /* ---- drawer ---- */
@@ -441,6 +441,22 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 const MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 const MSHORT=['ينا','فبر','مار','أبر','ماي','يون','يول','أغس','سبت','أكت','نوف','ديس'];
 
+/* ---------- توحيد أسماء المدن ----------
+   نفس المدينة تُكتب بأكثر من شكل في الجداول (اختلاف الهمزة، تاء مربوطة/هاء،
+   أو إضافة اسم الدولة)، فتتفتّت إحصاءات "التوزّع الجغرافي" وقوائم الفلترة إلى
+   عدّة صفوف لنفس المدينة. نُطبّق قاموس تصحيح معروف ومحدود (بلا تخمين) عند
+   استقبال البيانات في كل مشروع، ليتوحّد الاسم في كل الفلاتر والرسوم والخريطة. */
+const CITY_SYNONYMS={
+  'ادلب':'إدلب','سوريا - إدلب':'إدلب','سوريا-إدلب':'إدلب','سوريا إدلب':'إدلب',
+  'اعزاز':'إعزاز',
+  'اطمه':'اطمة'
+};
+function normCity(v){
+  const t=String(v||'').trim();
+  if(!t)return t;
+  return CITY_SYNONYMS[t]||t;
+}
+
 /* ---------- helpers ---------- */
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -534,12 +550,15 @@ function renderGeoMap(mapId,records){
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'&copy; OpenStreetMap contributors',maxZoom:18
   }).addTo(map);
-  const maleColor=cssv('--male'),femaleColor=cssv('--female');
+  const maleColor=cssv('--male'),femaleColor=cssv('--female'),unkColor=cssv('--text3');
   const pts=records.filter(r=>r.lat&&r.lng);
   const markers=pts.map(r=>{
-    const isMale=String(r.gender).includes('ذكر');
+    const g=String(r.gender||'');
+    /* الجنس غير معروف لعدد كبير من السجلات (لم يُستورد بعد) — لا نُصوّرهم كأنّهم
+       إناث افتراضياً، بل بنقطة رمادية "غير محدد" تمييزاً واضحاً على الخريطة. */
+    const fill=g.includes('ذكر')?maleColor:g.includes('أنث')?femaleColor:unkColor;
     const m=L.circleMarker([r.lat,r.lng],{
-      radius:6,weight:1,color:'#fff',fillColor:isMale?maleColor:femaleColor,fillOpacity:.9
+      radius:6,weight:1,color:'#fff',fillColor:fill,fillOpacity:.9
     }).addTo(map);
     m.bindPopup(`<b>${esc(r.name||'')}</b><br>${esc(r.city||'')}${r.onClick?`<br><button class="btn pri geoPopBtn" style="margin-top:6px;padding:4px 10px;font-size:12px">فتح البطاقة</button>`:''}`);
     m.on('popupopen',e=>{
@@ -656,20 +675,27 @@ const ChildrenProject = (function(){
   let geoMap=null;
 
   const isMale=c=>String(c.gender).includes('ذكر');
+  const isFemale=c=>String(c.gender).includes('أنث');
   const isOrphan=c=>String(c.orphan).trim()==='نعم';
   const paidNow=c=>String(c.curMark).trim()==='✓';
   const isLate=c=>!paidNow(c);
 
   function setData(j){
-    DB.children=j.children||[];DB.stats=j.stats||[];DB.logistics=j.logistics||[];
+    DB.children=(j.children||[]).map(c=>c&&c.city?{...c,city:normCity(c.city)}:c);
+    /* ورقة "الإحصائيات الشهرية" قد تحوي صفوف تلخيص/عناوين إضافية أسفل الأشهر
+       (مثل "مؤشرات المشروع الإجمالية")، فتُقرأ خطأً كأشهر بقيم صفرية وتُشوّه
+       جدول التقارير وقائمة اختيار الشهر. نُبقي فقط الصفوف التي اسمها شهر حقيقي. */
+    DB.stats=(j.stats||[]).filter(s=>s&&MONTHS.includes(String(s.month||'').trim()));
+    DB.logistics=j.logistics||[];
     DB.months=j.months||MONTHS;DB.currentMonth=j.currentMonth||'';
     DB.currentMonthIndex=j.currentMonthIndex!=null?j.currentMonthIndex:MONTHS.indexOf(DB.currentMonth);
   }
   function agg(){
-    const ch=DB.children,males=ch.filter(isMale).length,orphans=ch.filter(isOrphan).length;
+    const ch=DB.children,males=ch.filter(isMale).length,females=ch.filter(isFemale).length,orphans=ch.filter(isOrphan).length;
+    const genderUnknown=ch.length-males-females;
     const paid=ch.filter(paidNow).length,late=ch.length-paid;
     const yearMarks=ch.reduce((a,c)=>a+n0(c.paidMonths),0);
-    return{total:ch.length,males,females:ch.length-males,orphans,paid,late,
+    return{total:ch.length,males,females,genderUnknown,orphans,paid,late,
       coverage:ch.length?Math.round(paid/ch.length*100):0,monthValue:paid*UNIT,yearValue:yearMarks*UNIT,yearMarks};
   }
   function workerStats(){
@@ -785,7 +811,10 @@ const ChildrenProject = (function(){
     if(aC('coverage'))C.push(`<div class="panel"><h3>تغطية الكفالة عبر الأشهر <span class="tag">مكفول/غير</span></h3>${svgStacked(MSHORT.slice(0,6),paidByM,paidByM.map(v=>a.total-v))}${legend([{label:'مكفول',color:cssv('--ok')},{label:'غير مكفول',color:cssv('--bad')}])}</div>`);
     if(aC('money'))C.push(`<div class="panel"><h3>قيمة الكفالات الشهرية ($) <span class="tag">اتجاه</span></h3>${svgLine(MSHORT.slice(0,6),DB.stats.slice(0,6).map(s=>n0(s.total_usd)))}</div>`);
     if(aC('city')){const cc={};DB.children.forEach(c=>cc[c.city]=(cc[c.city]||0)+1);C.push(`<div class="panel"><h3>توزّع المدن <span class="tag">7 مدن</span></h3>${hbars(Object.entries(cc).sort((x,y)=>y[1]-x[1]).map(([k,v])=>({label:k,value:v})))}</div>`);}
-    if(aC('demo'))C.push(`<div class="panel"><h3>التركيبة العامة <span class="tag">جنس/يُتم</span></h3>${svgDonut([{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')},{label:'أيتام',value:a.orphans,color:cssv('--gold')}],{center:'طفل',centerVal:a.total})}${legend([{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')},{label:'أيتام '+a.orphans,color:cssv('--gold')}])}</div>`);
+    if(aC('demo')){const dsegs=[{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')},{label:'أيتام',value:a.orphans,color:cssv('--gold')}];
+      const dleg=[{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')},{label:'أيتام '+a.orphans,color:cssv('--gold')}];
+      if(a.genderUnknown>0){dsegs.push({label:'غير محدد',value:a.genderUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+a.genderUnknown,color:cssv('--text3')});}
+      C.push(`<div class="panel"><h3>التركيبة العامة <span class="tag">جنس/يُتم</span></h3>${svgDonut(dsegs,{center:'طفل',centerVal:a.total})}${legend(dleg)}</div>`);}
     $('#cOvCharts').innerHTML=C.join('');
   }
   function buildAlerts(a){
@@ -895,12 +924,16 @@ const StudentsProject = (function(){
   let geoMap=null;
 
   const isMale=s=>String(s.gender).includes('ذكر');
+  const isFemale=s=>String(s.gender).includes('أنث');
   const hasFinance=()=>DB.payments.length>0 || DB.students.some(s=>n0(s.payCount)>0||n0(s.totalIn)>0);
 
-  function setData(j){DB.students=j.students||[];DB.payments=j.payments||[];}
+  function setData(j){
+    DB.students=(j.students||[]).map(s=>s&&s.city?{...s,city:normCity(s.city)}:s);
+    DB.payments=j.payments||[];
+  }
 
   function agg(){
-    const S=DB.students,males=S.filter(isMale).length;
+    const S=DB.students,males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females;
     const unis=new Set(S.map(s=>s.university).filter(Boolean));
     const majors=new Set(S.map(s=>s.major).filter(Boolean));
     const cities=new Set(S.map(s=>s.city).filter(Boolean));
@@ -914,7 +947,7 @@ const StudentsProject = (function(){
     const balance=S.reduce((a,s)=>a+n0(s.balance),0);
     const payCount=S.reduce((a,s)=>a+n0(s.payCount),0);
     const collectRate=totalIn?Math.round(totalPaid/totalIn*100):0;
-    return{total:S.length,males,females:S.length-males,unis:unis.size,majors:majors.size,
+    return{total:S.length,males,females,genderUnknown,unis:unis.size,majors:majors.size,
       cities:cities.size,parallel,general,avgAge,totalIn,totalPaid,balance,payCount,collectRate};
   }
   const YEARS=['الأولى','الثانية','الثالثة','الرابعة','الخامسة','السادسة'];
@@ -1017,7 +1050,10 @@ const StudentsProject = (function(){
     $('#sOvKpis').innerHTML=K.join('');countUp($('#sOvKpis'));
 
     const C=[];
-    if(aC('gender'))C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut([{label:'إناث',value:a.females,color:cssv('--female')},{label:'ذكور',value:a.males,color:cssv('--male')}],{center:'طالب',centerVal:a.total})}${legend([{label:'إناث '+a.females,color:cssv('--female')},{label:'ذكور '+a.males,color:cssv('--male')}])}</div>`);
+    if(aC('gender')){const dsegs=[{label:'إناث',value:a.females,color:cssv('--female')},{label:'ذكور',value:a.males,color:cssv('--male')}];
+      const dleg=[{label:'إناث '+a.females,color:cssv('--female')},{label:'ذكور '+a.males,color:cssv('--male')}];
+      if(a.genderUnknown>0){dsegs.push({label:'غير محدد',value:a.genderUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+a.genderUnknown,color:cssv('--text3')});}
+      C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
     if(aC('years')){const yc=YEARS.map(y=>({label:y,value:DB.students.filter(s=>s.year===y).length})).filter(x=>x.value>0);C.push(`<div class="panel"><h3>التوزّع حسب السنة الدراسية <span class="tag">Bar</span></h3>${svgBar(yc,{color:cssv('--brand')})}</div>`);}
     if(aC('admission'))C.push(`<div class="panel"><h3>نوع القبول <span class="tag">عام/موازي</span></h3>${svgDonut([{label:'عام',value:a.general,color:cssv('--brand')},{label:'موازي',value:a.parallel,color:cssv('--gold')}],{center:'طالب',centerVal:a.total})}${legend([{label:'عام '+a.general,color:cssv('--brand')},{label:'موازي '+a.parallel,color:cssv('--gold')}])}</div>`);
     if(aC('unis')){const uc=topCounts(s=>s.university,6);C.push(`<div class="panel"><h3>أكثر الجامعات تمثيلاً <span class="tag">أعلى 6</span></h3>${hbars(uc)}</div>`);}
@@ -1102,10 +1138,10 @@ const StudentsProject = (function(){
       DB.students.forEach((s,i)=>{if(s.lat&&s.lng)records.push({lat:s.lat,lng:s.lng,gender:s.gender,name:s.name,city:s.city,onClick:()=>StudentsProject.openCard(i,0)});});
       geoMap=renderGeoMap('sGeoMap',records);
     }
-    const cc={};DB.students.forEach(s=>{const c=s.city||'غير محدّد';cc[c]=cc[c]||{m:0,f:0};isMale(s)?cc[c].m++:cc[c].f++;});
-    const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));const max=Math.max(...rows.map(([,v])=>v.m+v.f));
-    $('#sGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f;
-      return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')}])}`;
+    const cc={};DB.students.forEach(s=>{const c=s.city||'غير محدّد';cc[c]=cc[c]||{m:0,f:0,u:0};const g=String(s.gender||'');g.includes('ذكر')?cc[c].m++:g.includes('أنث')?cc[c].f++:cc[c].u++;});
+    const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f+b[1].u)-(a[1].m+a[1].f+a[1].u));const max=Math.max(...rows.map(([,v])=>v.m+v.f+v.u));
+    $('#sGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f+v.u;
+      return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div><div class="gu" style="width:${tot?v.u/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')},{label:'غير محدد',color:cssv('--text3')}])}`;
   }
   function initFilters(){
     $('#sStCity').innerHTML='<option value="">كل المدن</option>'+[...new Set(DB.students.map(s=>s.city))].filter(Boolean).sort().map(c=>`<option>${esc(c)}</option>`).join('');
@@ -1199,19 +1235,26 @@ const OrphansSchoolProject = (function(){
   let geoMap=null;
 
   const isMale=s=>String(s.gender).includes('ذكر');
+  const isFemale=s=>String(s.gender).includes('أنث');
   const isSponsored=s=>s.sponsored===true||String(s.sponsored).trim()==='نعم';
 
-  function setData(j){DB.students=j.students||[];DB.donations=j.donations||[];}
+  function setData(j){
+    DB.students=(j.students||[]).map(s=>s&&s.city?{...s,city:normCity(s.city)}:s);
+    DB.donations=j.donations||[];
+  }
 
   function agg(){
-    const S=DB.students,males=S.filter(isMale).length,sponsored=S.filter(isSponsored).length;
-    const progVals=S.map(s=>n0(s.progressPct)).filter(v=>v>0);
+    const S=DB.students,males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females,sponsored=S.filter(isSponsored).length;
+    /* تنبيه: كان الحساب السابق يستثني الطلاب غير المكفولين (progressPct=0) من
+       المتوسط، فيظهر "متوسط الإنجاز" وكأنه 100% رغم أن أغلب الطلاب غير مكفولين
+       أصلاً. الآن يُحتسب المتوسط على كل الطلاب فيعكس الواقع الحقيقي للبرنامج. */
+    const progVals=S.map(s=>n0(s.progressPct));
     const avgProgress=progVals.length?Math.round(progVals.reduce((a,b)=>a+b,0)/progVals.length):0;
     const totalIn=S.reduce((a,s)=>a+n0(s.totalIn),0);
     const totalPaid=S.reduce((a,s)=>a+n0(s.totalPaid),0);
     const remaining=S.reduce((a,s)=>a+n0(s.remainingBalance),0);
     const donationsCount=S.reduce((a,s)=>a+n0(s.donationsCount),0);
-    return{total:S.length,males,females:S.length-males,sponsored,unsponsored:S.length-sponsored,avgProgress,totalIn,totalPaid,remaining,donationsCount};
+    return{total:S.length,males,females,genderUnknown,sponsored,unsponsored:S.length-sponsored,avgProgress,totalIn,totalPaid,remaining,donationsCount};
   }
   function studentDonations(box){
     return DB.donations.filter(d=>String(d.box)===String(box)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
@@ -1341,7 +1384,10 @@ const OrphansSchoolProject = (function(){
     $('#oOvKpis').innerHTML=K.join('');countUp($('#oOvKpis'));
 
     const C=[];
-    if(aC('gender'))C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut([{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')}],{center:'طالب',centerVal:a.total})}${legend([{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')}])}</div>`);
+    if(aC('gender')){const dsegs=[{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')}];
+      const dleg=[{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')}];
+      if(a.genderUnknown>0){dsegs.push({label:'غير محدد',value:a.genderUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+a.genderUnknown,color:cssv('--text3')});}
+      C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
     if(aC('city')){const cc=topCounts(s=>s.city,8);C.push(`<div class="panel"><h3>توزّع المدن <span class="tag">أعلى 8</span></h3>${hbars(cc)}</div>`);}
     if(aC('grade')){const gc=topCounts(s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع</span></h3>${hbars(gc,{color:cssv('--gold')})}</div>`);}
     if(aC('displaced')){const disp=DB.students.filter(s=>String(s.displaced).trim()==='نازح').length;C.push(`<div class="panel"><h3>نازح/مقيم <span class="tag">Ratio</span></h3>${svgDonut([{label:'نازح',value:disp,color:cssv('--warn')},{label:'مقيم',value:a.total-disp,color:cssv('--brand')}],{center:'طالب',centerVal:a.total})}${legend([{label:'نازح '+disp,color:cssv('--warn')},{label:'مقيم '+(a.total-disp),color:cssv('--brand')}])}</div>`);}
@@ -1353,10 +1399,10 @@ const OrphansSchoolProject = (function(){
       const records=DB.students.filter(s=>s.lat&&s.lng).map(s=>({lat:s.lat,lng:s.lng,gender:s.gender,name:s.name,city:s.city,onClick:()=>OrphansSchoolProject.openCard(s.box)}));
       geoMap=renderGeoMap('oGeoMap',records);
     }
-    const cc={};DB.students.forEach(s=>{cc[s.city]=cc[s.city]||{m:0,f:0};isMale(s)?cc[s.city].m++:cc[s.city].f++;});
-    const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f)-(a[1].m+a[1].f));const max=Math.max(...rows.map(([,v])=>v.m+v.f));
-    $('#oGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f;
-      return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')}])}`;
+    const cc={};DB.students.forEach(s=>{const c=s.city||'غير محدّد';cc[c]=cc[c]||{m:0,f:0,u:0};const g=String(s.gender||'');g.includes('ذكر')?cc[c].m++:g.includes('أنث')?cc[c].f++:cc[c].u++;});
+    const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f+b[1].u)-(a[1].m+a[1].f+a[1].u));const max=Math.max(...rows.map(([,v])=>v.m+v.f+v.u));
+    $('#oGeoBody').innerHTML=`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f+v.u;
+      return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div><div class="gu" style="width:${tot?v.u/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')},{label:'غير محدد',color:cssv('--text3')}])}`;
   }
   function initFilters(){
     $('#oStCity').innerHTML='<option value="">كل المدن</option>'+[...new Set(DB.students.map(s=>s.city))].filter(Boolean).sort().map(c=>`<option>${esc(c)}</option>`).join('');
