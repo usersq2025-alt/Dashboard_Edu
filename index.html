@@ -272,17 +272,17 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 
 /* ---- main column ---- */
 .main-col{flex:1;min-width:0;display:flex;flex-direction:column}
-.topbar2{position:sticky;top:0;z-index:800;height:58px;display:flex;align-items:center;gap:10px;padding:0 16px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-.menu-btn{flex-shrink:0;display:grid}
-.topbar2 .pname{font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
-.page-nav{display:flex;gap:2px;margin-inline-start:6px;overflow-x:auto;scrollbar-width:none;flex:1}
+.topbar2{position:sticky;top:0;z-index:800;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:9px 16px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.menu-btn{flex-shrink:0;display:grid;order:1}
+.topbar2 .pname{order:2;font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.page-nav{order:4;display:flex;gap:2px;margin-inline-start:0;overflow-x:auto;scrollbar-width:none;flex:1 1 100%;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%)}
 .page-nav::-webkit-scrollbar{display:none}
 .page-nav button{border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:.88rem;padding:7px 12px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:.14s;display:inline-flex;align-items:center;gap:6px}
 .page-nav button:hover{background:var(--bg2);color:var(--text)}
 .page-nav button.active{background:var(--brand);color:#fff}
 .page-nav .bn{background:var(--bad);color:#fff;font-size:.66rem;font-weight:800;min-width:17px;height:17px;padding:0 5px;border-radius:9px;display:grid;place-items:center}
 .page-nav button.active .bn{background:rgba(255,255,255,.25)}
-.top-actions{margin-inline-start:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.top-actions{order:3;margin-inline-start:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .proj-host{flex:1}
 
 /* ---- login screen ---- */
@@ -548,9 +548,28 @@ function renderGeoMap(mapId,records){
     });
     return m;
   });
-  if(markers.length){map.fitBounds(L.featureGroup(markers).getBounds(),{padding:[20,20],maxZoom:11});}
-  else{map.setView([35.9,36.6],7);}
+  /* الخريطة تُبنى وصفحتها مخفية (display:none) قبل أن يفتحها المستخدم، فتحصل Leaflet
+     على حاوية بحجم صفر ولا ترسم البلاطات ولا تُموضع العرض بشكل صحيح. لذلك نلتقط
+     دالة "إعادة القياس" هنا، ونُخزّنها لتُستدعى فعليّاً بعد ظهور الصفحة (من goPage). */
+  const refit=()=>{
+    map.invalidateSize();
+    if(markers.length){map.fitBounds(L.featureGroup(markers).getBounds(),{padding:[20,20],maxZoom:11});}
+    else{map.setView([35.9,36.6],7);}
+  };
+  refit();
+  map._refit=refit;
+  window.__geoMapRef=map;
   return map;
+}
+if(!window.__geoResizeBound){
+  window.__geoResizeBound=true;
+  let geoResizeT=null;
+  window.addEventListener('resize',()=>{
+    clearTimeout(geoResizeT);
+    geoResizeT=setTimeout(()=>{
+      if(document.querySelector('.page.active')?.dataset.page==='geo'&&window.__geoMapRef?._refit)window.__geoMapRef._refit();
+    },150);
+  });
 }
 function svgStacked(labels,A,B,opts={}){
   const W=opts.w||560,H=opts.h||260,pad={t:14,r:10,b:34,l:38};
@@ -1830,6 +1849,13 @@ const Platform = (function(){
     $$('#projectHost .page').forEach(p=>p.classList.toggle('active',p.dataset.page===id));
     $$('#pageNav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
     window.scrollTo({top:0,behavior:'smooth'});
+    if(id==='geo'&&window.__geoMapRef){
+      /* الخريطة تُبنى مخفية؛ بعد إظهار الصفحة فعلاً نطلب من Leaflet إعادة قياس
+         الحاوية وإعادة توسيط/تقريب العرض على الدبابيس، وإلا تبقى رمادية فارغة. */
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        try{window.__geoMapRef._refit&&window.__geoMapRef._refit();}catch(e){}
+      }));
+    }
   }
 
   /* ============ الدرج (مشترك بين المشاريع) ============ */
