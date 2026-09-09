@@ -624,7 +624,8 @@ function hashPass(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCod
 <script>
 const EMBEDDED_CHILDREN = {children:[],stats:[],logistics:[],months:MONTHS,currentMonth:'',currentMonthIndex:0,generated:'',source:'none'};
 const EMBEDDED_STUDENTS = {students:[],payments:[],generated:'',source:'none'};
-const EMBEDDED_ORPHANS_SCHOOL = {students:[],generated:'',source:'none'};
+const EMBEDDED_ORPHANS_SCHOOL = {students:[],donations:[],generated:'',source:'none'};
+const EMBEDDED_CAMPAIGNS = {campaigns:[],donations:[],generated:'',source:'none'};
 
 /* ===================================================================
    مشروع كفالة الأطفال — وحدة العرض (project_children.js)
@@ -952,7 +953,18 @@ const StudentsProject = (function(){
     </div></section>`;}
   function secFinance(){return `<section class="page" data-page="finance">
     <div class="phead"><div><div class="eb">المالية</div><h1>المتابعة المالية والتحصيل</h1></div></div>
-    <div id="sFinContent"></div></section>`;}
+    <div id="sFinContent"></div>
+    <div class="slabel">سجل الدفعات حسب الفترة الزمنية</div>
+    <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:6px">من <input type="date" id="sPayFrom"></label>
+      <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="sPayTo"></label>
+      <button class="btn pri" id="sPayApply">تطبيق</button>
+      <button class="btn" id="sPayClear">كل الفترة</button>
+      <span class="cnt" id="sPayCount"></span>
+    </div>
+    <div class="kpis" id="sPayKpis"></div>
+    <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>الطالب</th><th>المبلغ</th><th>المتبرع</th></tr></thead><tbody id="sPayTable"></tbody></table></div>
+    </section>`;}
   function secGeo(){return `<section class="page" data-page="geo">
     <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الطلاب على المدن</h1></div></div>
     <div class="panel" style="padding:8px"><div id="sGeoMap" style="height:420px;border-radius:10px;overflow:hidden"></div></div>
@@ -1012,6 +1024,7 @@ const StudentsProject = (function(){
         ${kpi('warn','clock','—','نسبة التحصيل','بانتظار البيانات')}</div>
         ${emptyState('wallet','دفتر الدفعات فارغ في ملف Excel',
         'ورقة «دفتر الدفعات» لم تُملأ بعد، وأعمدة المبالغ تُحتسب منها تلقائياً. أدخِل الدفعات في Google Sheet (رقم الصندوق، تاريخ التسليم، <code>المبلغ الداخل</code>، <code>المبلغ المدفوع</code>) لتظهر هنا: نسبة التحصيل، الرصيد المتبقّي، متوسط الدفعة، وتحليل المتأخرات. لم تُختلق أرقام احتراماً لدقّة البيانات.')}`;
+      wirePaymentsPeriod();
       return;
     }
     // full financial view when data exists
@@ -1027,6 +1040,41 @@ const StudentsProject = (function(){
     countUp($('#sFinK'));
     $('#sFinBars').innerHTML=svgBar([{label:'الداخل',value:Math.round(a.totalIn),color:cssv('--gold')},{label:'المدفوع',value:Math.round(a.totalPaid),color:cssv('--ok')},{label:'الرصيد',value:Math.round(a.balance),color:cssv('--bad')}]);
     $('#sFinRate').innerHTML=svgDonut([{label:'محصّل',value:a.totalPaid,color:cssv('--ok')},{label:'متبقّي',value:a.balance,color:cssv('--bad')}],{center:a.collectRate+'%',centerVal:a.collectRate+'%'});
+    wirePaymentsPeriod();
+  }
+  function wirePaymentsPeriod(){
+    if(!$('#sPayApply'))return;
+    const byBox={};DB.students.forEach(s=>{byBox[String(s.box??s.id??'')]=s;});
+    const render=()=>{
+      if(!DB.payments.length){
+        $('#sPayKpis').innerHTML=emptyState('wallet','لا توجد دفعات مسجّلة بعد','ستظهر الدفعات هنا فور توفّرها من دفتر الدفعات.');
+        $('#sPayTable').innerHTML='';$('#sPayCount').textContent='';
+        return;
+      }
+      const from=$('#sPayFrom').value,to=$('#sPayTo').value;
+      const list=DB.payments.filter(p=>{
+        const day=String(p.date??p.paymentDate??'').slice(0,10);
+        if(from&&day<from)return false;
+        if(to&&day>to)return false;
+        return true;
+      });
+      const total=list.reduce((a,p)=>a+n0(p.amount??p.netAmount??p.net_amount),0);
+      const donors=new Set(list.map(p=>p.donorId??p.donorEmail??(p.donor&&p.donor.id)??(p.donor&&p.donor.email)).filter(Boolean)).size;
+      $('#sPayKpis').innerHTML=kpi('brand','wallet',usd(total),'إجمالي الدفعات بالفترة')+kpi('ok','calc',list.length,'عدد الدفعات')+kpi('gold','users',donors,'عدد المتبرعين');
+      countUp($('#sPayKpis'));
+      $('#sPayCount').textContent=list.length+' دفعة';
+      const sorted=list.slice().sort((a,b)=>String(b.date??b.paymentDate??'').localeCompare(String(a.date??a.paymentDate??''))).slice(0,300);
+      $('#sPayTable').innerHTML=sorted.map(p=>{
+        const key=String(p.box??p.studentBox??'');const st=byBox[key];
+        const name=(st&&st.name)||p.name||p.studentName||'—';
+        const amt=p.amount??p.netAmount??p.net_amount??0;
+        const donor=p.donorName??(p.donor&&p.donor.name)??'';
+        return `<tr><td>${esc(p.date??p.paymentDate??'—')}</td><td>${esc(name)}</td><td class="num">${usd(amt)}</td><td>${esc(donor||'—')}</td></tr>`;
+      }).join('')||`<tr><td colspan="4" style="text-align:center">لا نتائج</td></tr>`;
+    };
+    $('#sPayApply').onclick=render;
+    $('#sPayClear').onclick=()=>{$('#sPayFrom').value='';$('#sPayTo').value='';render();};
+    render();
   }
   function buildGeo(){
     if(geoMap){geoMap.remove();geoMap=null;}
@@ -1076,7 +1124,22 @@ const StudentsProject = (function(){
       <div class="ds"><h4>${ic('id')} الهوية</h4><div class="dg">${df('العمر',s.age)}${df('تاريخ الميلاد',s.birthdate)}${df('المدينة',s.city)}${df('الرقم الوطني',idVal)}</div></div>
       <div class="ds"><h4>${ic('cap')} الأكاديمي</h4><div class="dg">${df('الجامعة',s.university,true)}${df('التخصص',s.major)}${df('السنة',s.year)}${df('نوع القبول',s.admissionType)}${df('الرقم الجامعي',s.uniId)}${df('سنوات التخصص',s.majorYears)}</div></div>
       <div class="ds"><h4>${ic('users')} المتابعة</h4><div class="dg">${df('تاريخ الزيارة',s.visitDate)}${df('حالة التأمين',s.insuranceStatus||'—')}${df('نوع الكفالة',s.sponsorType||'—')}${df('بدء الكفالة',s.sponsorStart||'—')}${s.boxLink?`<div class="df full"><div class="k">رابط الصندوق</div><div class="vv"><a href="${esc(s.boxLink)}" target="_blank" rel="noopener">${ic('link')} فتح</a></div></div>`:''}</div></div>
-      ${fin}`);
+      ${fin}${paymentsHistoryHtml(s)}`);
+  }
+  function studentPayments(s){
+    const key=String(s.box??s.id??'');
+    return DB.payments.filter(p=>String(p.box??p.studentBox??p.id??'')===key)
+      .slice().sort((a,b)=>String(b.date??b.paymentDate??'').localeCompare(String(a.date??a.paymentDate??'')));
+  }
+  function paymentsHistoryHtml(s){
+    const list=studentPayments(s);
+    if(!list.length)return '';
+    return `<div class="ds"><h4>${ic('wallet')} سجل الدفعات التفصيلي (${list.length})</h4><div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>المتبرع</th></tr></thead><tbody>${list.map(p=>{
+      const amt=p.amount??p.netAmount??p.net_amount??0;
+      const date=p.date??p.paymentDate??'—';
+      const donor=p.donorName??(p.donor&&p.donor.name)??'';
+      return `<tr><td>${esc(date)}</td><td class="num">${usd(amt)}</td><td>${esc(donor||'—')}</td></tr>`;
+    }).join('')}</tbody></table></div></div>`;
   }
   function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
   function initReports(){
@@ -1112,25 +1175,33 @@ const StudentsProject = (function(){
    مبنيّ على نفس بنية وأسلوب ChildrenProject تماماً.
    =================================================================== */
 const OrphansSchoolProject = (function(){
-  let DB={students:[]};
+  let DB={students:[],donations:[]};
   let oPage=1;
   let geoMap=null;
 
   const isMale=s=>String(s.gender).includes('ذكر');
   const isSponsored=s=>s.sponsored===true||String(s.sponsored).trim()==='نعم';
 
-  function setData(j){DB.students=j.students||[];}
+  function setData(j){DB.students=j.students||[];DB.donations=j.donations||[];}
 
   function agg(){
     const S=DB.students,males=S.filter(isMale).length,sponsored=S.filter(isSponsored).length;
     const progVals=S.map(s=>n0(s.progressPct)).filter(v=>v>0);
     const avgProgress=progVals.length?Math.round(progVals.reduce((a,b)=>a+b,0)/progVals.length):0;
-    return{total:S.length,males,females:S.length-males,sponsored,unsponsored:S.length-sponsored,avgProgress};
+    const totalIn=S.reduce((a,s)=>a+n0(s.totalIn),0);
+    const totalPaid=S.reduce((a,s)=>a+n0(s.totalPaid),0);
+    const remaining=S.reduce((a,s)=>a+n0(s.remainingBalance),0);
+    const donationsCount=S.reduce((a,s)=>a+n0(s.donationsCount),0);
+    return{total:S.length,males,females:S.length-males,sponsored,unsponsored:S.length-sponsored,avgProgress,totalIn,totalPaid,remaining,donationsCount};
+  }
+  function studentDonations(box){
+    return DB.donations.filter(d=>String(d.box)===String(box)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
   }
 
   /* قائمة الصفحات (للـ sidebar وللمشاركة) */
   const PAGES=[
     {id:'overview',label:'النظرة العامة',icon:'gauge'},
+    {id:'finance',label:'المتابعة المالية',icon:'wallet'},
     {id:'geo',label:'التوزّع الجغرافي',icon:'pin'},
     {id:'students',label:'بطاقات الطلاب',icon:'child'},
     {id:'reports',label:'التقارير',icon:'file'},
@@ -1150,6 +1221,7 @@ const OrphansSchoolProject = (function(){
 
     let pagesHtml='';
     if(allowPage('overview'))pagesHtml+=pageOverview(a,allowKpi,allowChart);
+    if(allowPage('finance'))pagesHtml+=pageFinance();
     if(allowPage('geo'))pagesHtml+=pageGeo();
     if(allowPage('students'))pagesHtml+=pageStudents();
     if(allowPage('reports'))pagesHtml+=pageReports();
@@ -1157,6 +1229,7 @@ const OrphansSchoolProject = (function(){
 
     // build dynamic content
     if(allowPage('overview')){buildOverview(a,allowKpi,allowChart);}
+    if(allowPage('finance'))buildFinance();
     if(allowPage('geo'))buildGeo();
     if(allowPage('students')){initFilters();renderCards();}
     if(allowPage('reports'))initReports();
@@ -1173,6 +1246,50 @@ const OrphansSchoolProject = (function(){
       <div class="slabel">التحليل البصري</div>
       <div class="grid g2" id="oOvCharts"></div>
     </section>`;
+  }
+  function pageFinance(){return `<section class="page" data-page="finance">
+    <div class="phead"><div><div class="eb">المالية</div><h1>متابعة التبرعات الواردة</h1></div></div>
+    <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:6px">من <input type="date" id="oFinFrom"></label>
+      <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="oFinTo"></label>
+      <button class="btn pri" id="oFinApply">تطبيق الفترة</button>
+      <button class="btn" id="oFinClear">كل الفترة</button>
+    </div>
+    <div class="kpis" id="oFinKpis"></div>
+    <div class="slabel">أكثر الطلاب استفادة من التبرعات (بالفترة المحددة)</div>
+    <div class="panel"><div id="oFinTop"></div></div>
+    <div class="slabel">سجل التبرعات (بالفترة المحددة، أحدث 300)</div>
+    <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>الطالب</th><th>رقم الصندوق</th><th>المبلغ</th><th>المتبرع</th></tr></thead><tbody id="oFinTable"></tbody></table></div>
+  </section>`;}
+  function buildFinance(){
+    if(!DB.donations.length){
+      $('#oFinKpis').innerHTML=emptyState('wallet','لا توجد بيانات تبرعات مفصّلة بعد','ستظهر هنا تلقائياً فور اكتمال أول دورة سحب دفعات من منصة ملهم (السحب التلقائي بالخلفية).');
+      $('#oFinTop').innerHTML='';$('#oFinTable').innerHTML='';
+      return;
+    }
+    const render=()=>{
+      const from=$('#oFinFrom').value,to=$('#oFinTo').value;
+      const list=DB.donations.filter(d=>{
+        const day=String(d.date||'').slice(0,10);
+        if(from&&day<from)return false;
+        if(to&&day>to)return false;
+        return true;
+      });
+      const total=list.reduce((a,d)=>a+n0(d.amount),0);
+      const donors=new Set(list.map(d=>d.donorId||d.donorEmail||d.donorName).filter(Boolean)).size;
+      const students=new Set(list.map(d=>d.box)).size;
+      $('#oFinKpis').innerHTML=kpi('brand','wallet',usd(total),'إجمالي التبرعات بالفترة')+kpi('ok','calc',list.length,'عدد التبرعات')+kpi('gold','users',donors,'عدد المتبرعين')+kpi('warn','child',students,'عدد الطلاب المستفيدين');
+      countUp($('#oFinKpis'));
+      const byStudent={};
+      list.forEach(d=>{const k=String(d.box);byStudent[k]=byStudent[k]||{label:d.name||('#'+d.box),value:0};byStudent[k].value+=n0(d.amount);});
+      const top=Object.values(byStudent).sort((a,b)=>b.value-a.value).slice(0,10).map(x=>({label:x.label,value:Math.round(x.value)}));
+      $('#oFinTop').innerHTML=top.length?hbars(top,{color:cssv('--gold')}):emptyState('search','لا نتائج بهذه الفترة','وسّعي نطاق التاريخ.');
+      const sorted=list.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,300);
+      $('#oFinTable').innerHTML=sorted.map(d=>`<tr><td>${esc(d.date)}</td><td>${esc(d.name)}</td><td class="num">#${esc(d.box)}</td><td class="num">${usd(d.amount)}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')||`<tr><td colspan="5" style="text-align:center">لا نتائج</td></tr>`;
+    };
+    $('#oFinApply').onclick=render;
+    $('#oFinClear').onclick=()=>{$('#oFinFrom').value='';$('#oFinTo').value='';render();};
+    render();
   }
   function pageGeo(){return `<section class="page" data-page="geo">
     <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الطلاب على المدن</h1></div></div>
@@ -1260,7 +1377,13 @@ const OrphansSchoolProject = (function(){
       <div class="ds"><h4>${ic('users')} المعيل والسكن</h4><div class="dg">${df('المعيل',s.guardian)}${df('صفة المعيل',s.guardianRelation)}${df('الرقم الوطني للمعيل',s.guardianNationalId)}${df('المدينة',s.city)}${df('نازح/مقيم',s.displaced)}</div></div>
       <div class="ds"><h4>${ic('cap')} الصحة والتعليم</h4><div class="dg">${df('الحالة الصحية',s.healthStatus)}${df('الصف الدراسي',s.grade)}${df('الفوج',s.cohort)}</div></div>
       <div class="ds"><h4>${ic('heart')} الكفالة</h4><div class="dg">${df('هل مكفول',s.sponsored===true?'نعم':(s.sponsored||'—'))}${df('تاريخ بدء الكفالة',s.sponsorStart)}${df('تاريخ إيقاف الصندوق',s.stopDate)}${s.boxLink?`<div class="df full"><div class="k">رابط الصندوق</div><div class="vv"><a href="${esc(s.boxLink)}" target="_blank" rel="noopener">${ic('link')} فتح</a></div></div>`:''}</div></div>
-      <div class="ds"><h4>${ic('trend')} بيانات المنصة (تلقائي)</h4><div class="dg">${df('حالة الكفالة',s.platformStatus)}${df('اسم الراعي',s.sponsorName)}${df('قيمة الكفالة الشهرية',s.monthlyAmount!=null?usd(s.monthlyAmount):'—')}${df('إجمالي الداخل',s.totalIn!=null?usd(s.totalIn):'—')}${df('إجمالي المدفوع',s.totalPaid!=null?usd(s.totalPaid):'—')}${df('الرصيد المتبقي',s.remainingBalance!=null?usd(s.remainingBalance):'—')}${df('نسبة الإنجاز',s.progressPct!=null?s.progressPct+'%':'—')}${df('عدد التبرعات',s.donationsCount)}${df('آخر مزامنة',s.lastSync,true)}</div></div>`);
+      <div class="ds"><h4>${ic('trend')} بيانات المنصة (تلقائي)</h4><div class="dg">${df('حالة الكفالة',s.platformStatus)}${df('اسم الراعي',s.sponsorName)}${df('قيمة الكفالة الشهرية',s.monthlyAmount!=null?usd(s.monthlyAmount):'—')}${df('إجمالي الداخل',s.totalIn!=null?usd(s.totalIn):'—')}${df('إجمالي المدفوع',s.totalPaid!=null?usd(s.totalPaid):'—')}${df('الرصيد المتبقي',s.remainingBalance!=null?usd(s.remainingBalance):'—')}${df('نسبة الإنجاز',s.progressPct!=null?s.progressPct+'%':'—')}${df('عدد التبرعات',s.donationsCount)}${df('آخر مزامنة',s.lastSync,true)}</div></div>
+      ${donationsHtml(s.box)}`);
+  }
+  function donationsHtml(box){
+    const list=studentDonations(box);
+    if(!list.length)return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات</h4><div class="df full"><div class="vv" style="color:var(--text3)">لا توجد تبرعات مفصّلة مسجّلة بعد لهذا الطالب.</div></div></div>`;
+    return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات (${list.length})</h4><div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>المتبرع</th></tr></thead><tbody>${list.map(d=>`<tr><td>${esc(d.date)}</td><td class="num">${usd(d.amount)}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
   function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
   function initReports(){
@@ -1288,7 +1411,200 @@ const OrphansSchoolProject = (function(){
 
   return {setData,render,openCard,setPage:i=>{oPage=i;renderCards();},PAGES,ELEMENTS,agg};
 })();
-/* ⚠️ لتفعيل هذا المشروع: أضيفي عنصراً له بمصفوفة PROJECTS بكائن Platform (id, name, sub, icon:'building', accent, data:()=>EMBEDDED_ORPHANS_SCHOOL, module:()=>OrphansSchoolProject, apiUrl) بعد نشر الـ Apps Script الخاص به */
+/* ✅ هذا المشروع مُفعَّل فعلياً بمصفوفة PROJECTS (id:'school'). إن ظهر "تعذّر الاتصال" بشارة المصدر،
+   أعيدي نشر Apps Script الخاص بمدرسة ملهم للأيتام (Deploy → Manage deployments → Edit → Version: New version)
+   وتأكّدي أن رابط /exec مطابق للموجود بمصفوفة PROJECTS بأسفل هذا الملف. */
+
+/* ===================================================================
+   لوحة الحملات — وحدة العرض (project_campaigns.js)
+   بيانات عامة (بلا معلومات شخصية) من molhamteam.com: حالة كل حملة + سجل تبرعاتها.
+   تتيح أيضاً حساب مقارنة "داخل الحملات مقابل خارجها" بجلب بيانات مشروعي
+   الطلبة الجامعيين والمدرسة مباشرةً عبر Platform.fetchExtra عند الطلب.
+   =================================================================== */
+const CampaignsProject = (function(){
+  let DB={campaigns:[],donations:[]};
+
+  function setData(j){DB.campaigns=j.campaigns||[];DB.donations=j.donations||[];}
+
+  function agg(){
+    const C=DB.campaigns;
+    const required=C.reduce((a,c)=>a+n0(c.required),0);
+    const paid=C.reduce((a,c)=>a+n0(c.paid),0);
+    const remaining=C.reduce((a,c)=>a+n0(c.remaining),0);
+    const donationsCount=C.reduce((a,c)=>a+n0(c.donationsCount),0);
+    const active=C.filter(c=>!/منته|مغلق|متوقف/.test(String(c.status||''))).length;
+    const avgPct=C.length?Math.round(C.reduce((a,c)=>a+n0(c.pct),0)/C.length):0;
+    return{count:C.length,required,paid,remaining,donationsCount,active,avgPct};
+  }
+  function trunc(s,n){s=String(s||'');return s.length>n?s.slice(0,n-1)+'…':s;}
+
+  const PAGES=[
+    {id:'overview',label:'النظرة العامة',icon:'gauge'},
+    {id:'campaigns',label:'الحملات',icon:'building'},
+    {id:'analysis',label:'التحليل والمقارنة',icon:'trend'},
+    {id:'reports',label:'التقارير',icon:'file'},
+  ];
+  const ELEMENTS={kpis:['count','required','paid','remaining','donationsCount','avgPct'],charts:['status','top']};
+
+  function render(host,perm){
+    const aP=id=>!perm||!perm.pages||perm.pages.includes(id);
+    const aK=id=>!perm||!perm.kpis||perm.kpis.includes(id);
+    const aC=id=>!perm||!perm.charts||perm.charts.includes(id);
+    const a=agg();
+    let html='';
+    if(aP('overview'))html+=secOverview();
+    if(aP('campaigns'))html+=secCampaigns();
+    if(aP('analysis'))html+=secAnalysis();
+    if(aP('reports'))html+=secReports();
+    host.innerHTML=html||emptyState('building','لوحة الحملات غير متصلة بعد','أضيفي رابط /exec الخاص بمشروع «لوحة الحملات - قسم التعليم» بمصفوفة PROJECTS.');
+    if(aP('overview'))buildOverview(a,aK,aC);
+    if(aP('campaigns')){initFilters();renderCampaigns();}
+    if(aP('analysis'))buildAnalysis();
+    if(aP('reports'))initReports();
+    return {pages:PAGES.filter(p=>aP(p.id)),alertCount:0};
+  }
+
+  function secOverview(){return `<section class="page active" data-page="overview">
+    <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>نظرة عامة على الحملات</h1></div><div class="meta" id="gOvMeta"></div></div>
+    <div class="slabel">المؤشرات العامة</div><div class="kpis" id="gOvKpis"></div>
+    <div class="slabel">التحليل البصري</div><div class="grid g2" id="gOvCharts"></div></section>`;}
+
+  function secCampaigns(){return `<section class="page" data-page="campaigns">
+    <div class="phead"><div><div class="eb">السجل</div><h1>كل الحملات المسجَّلة</h1></div></div>
+    <div class="toolbar"><input id="gCaSearch" placeholder="بحث باسم الحملة…"/>
+      <select id="gCaStatus"><option value="">كل الحالات</option></select>
+      <span class="cnt" id="gCaCount"></span></div>
+    <div class="cards" id="gCaGrid"></div></section>`;}
+
+  function secAnalysis(){return `<section class="page" data-page="analysis">
+    <div class="phead"><div><div class="eb">التحليل</div><h1>التحليل الزمني ومقارنة داخل/خارج الحملات</h1></div></div>
+    <div class="panel">
+      <h3>${ic('cal')} فلترة الفترة والحملات</h3>
+      <div class="toolbar">
+        <label style="display:flex;align-items:center;gap:6px">من <input type="date" id="gAnFrom"></label>
+        <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="gAnTo"></label>
+        <button class="btn pri" id="gAnApply">تطبيق</button>
+        <button class="btn" id="gAnClear">كل الفترة وكل الحملات</button>
+      </div>
+      <div id="gAnCampChecks" class="sh-checks" style="margin-top:10px"></div>
+    </div>
+    <div class="slabel">تبرعات الحملات المختارة ضمن الفترة</div>
+    <div class="kpis" id="gAnKpis"></div>
+    <div class="grid g2">
+      <div class="panel"><h3>${ic('trend')} اتجاه التبرعات شهرياً (داخل الحملات المختارة)</h3><div id="gAnTrend"></div></div>
+      <div class="panel"><h3>${ic('percent')} داخل الحملات مقابل خارجها (كفالات منتظمة)</h3><div id="gAnCompare">${emptyState('trend','اضغطي "تطبيق" لتحميل المقارنة','سيتم جلب مجموع الكفالات المنتظمة (خارج الحملات) من مشروعي الطلبة والمدرسة تلقائياً.')}</div></div>
+    </div></section>`;}
+
+  function secReports(){return `<section class="page" data-page="reports">
+    <div class="phead"><div><div class="eb">المخرجات</div><h1>تقرير الحملات</h1></div></div>
+    <div class="toolbar"><button class="btn pri" onclick="window.print()">طباعة / PDF</button><button class="btn gold" id="gRpCsv">تصدير CSV</button></div>
+    <div id="gRpView"></div></section>`;}
+
+  function buildOverview(a,aK,aC){
+    $('#gOvMeta').innerHTML=`${a.count} حملة · ${a.active} نشطة`;
+    const K=[];
+    if(aK('count'))K.push(kpi('brand','building',a.count,'عدد الحملات'));
+    if(aK('required'))K.push(kpi('gold','wallet',usd(a.required),'إجمالي المطلوب'));
+    if(aK('paid'))K.push(kpi('ok','check',usd(a.paid),'إجمالي المحصّل'));
+    if(aK('remaining'))K.push(kpi('warn','clock',usd(a.remaining),'إجمالي المتبقي'));
+    if(aK('donationsCount'))K.push(kpi('brand','calc',a.donationsCount,'عدد التبرعات'));
+    if(aK('avgPct'))K.push(kpi('gold','percent',a.avgPct,'متوسط نسبة الإنجاز %'));
+    $('#gOvKpis').innerHTML=K.join('');countUp($('#gOvKpis'));
+
+    const C=[];
+    if(aC('status'))C.push(`<div class="panel"><h3>الحملات حسب المبلغ المحصّل <span class="tag">Bar</span></h3>${DB.campaigns.length?svgBar(DB.campaigns.map(c=>({label:trunc(c.name,10),value:Math.round(n0(c.paid))}))):emptyState('building','لا بيانات بعد','')}</div>`);
+    if(aC('top'))C.push(`<div class="panel"><h3>نسبة الإنجاز لكل حملة <span class="tag">%</span></h3>${DB.campaigns.length?hbars(DB.campaigns.map(c=>({label:c.name,value:Math.round(n0(c.pct))}))):''}</div>`);
+    $('#gOvCharts').innerHTML=C.join('');
+  }
+
+  function initFilters(){
+    const statuses=[...new Set(DB.campaigns.map(c=>c.status))].filter(Boolean);
+    $('#gCaStatus').innerHTML='<option value="">كل الحالات</option>'+statuses.map(s=>`<option>${esc(s)}</option>`).join('');
+    ['#gCaSearch','#gCaStatus'].forEach(s=>$(s).addEventListener('input',renderCampaigns));
+  }
+  function filterCampaigns(){
+    const q=($('#gCaSearch').value||'').trim().toLowerCase(),st=$('#gCaStatus').value;
+    return DB.campaigns.filter(c=>{
+      if(st&&c.status!==st)return false;
+      if(q&&!String(c.name).toLowerCase().includes(q))return false;
+      return true;
+    });
+  }
+  function renderCampaigns(){
+    const list=filterCampaigns();$('#gCaCount').textContent=list.length+' حملة';
+    const grid=$('#gCaGrid');
+    if(!list.length){grid.innerHTML=emptyState('search','لا نتائج','غيّري البحث، أو لم تُسحب بيانات الحملات بعد.');return;}
+    grid.innerHTML=list.map(c=>`<div class="card">
+      <div class="hd"><div class="av">${ic('building')}</div><div class="ht"><b>${esc(c.name)}</b><span>#${esc(c.id)} · ${esc(c.status||'—')}</span></div></div>
+      <div class="bd">
+        <div class="rw"><span>المطلوب</span><b>${usd(c.required)}</b></div>
+        <div class="rw"><span>المحصّل</span><b>${usd(c.paid)}</b></div>
+        <div class="rw"><span>المتبقي</span><b>${usd(c.remaining)}</b></div>
+        <div class="rw"><span>عدد التبرعات</span><b>${fmt(c.donationsCount)}</b></div>
+        <div class="ft"><span class="chip ${n0(c.pct)>=100?'ok':n0(c.pct)>=50?'warn':'bad'}">${Math.round(n0(c.pct))}%</span><span class="dt">${esc(c.publishDate||'—')}</span></div>
+      </div></div>`).join('');
+  }
+
+  function monthKey(d){return String(d||'').slice(0,7);}
+
+  function buildAnalysis(){
+    const checksHost=$('#gAnCampChecks');
+    checksHost.innerHTML=DB.campaigns.map(c=>`<label class="sh-chk"><input type="checkbox" class="gAnCk" value="${esc(c.id)}" checked><span>${esc(c.name)}</span></label>`).join('')
+      ||`<small style="color:var(--text3)">لا حملات مسجّلة بعد.</small>`;
+    const run=async()=>{
+      const from=$('#gAnFrom').value,to=$('#gAnTo').value;
+      const ids=$$('.gAnCk',checksHost).filter(i=>i.checked).map(i=>i.value);
+      const inRange=d=>{const day=String(d.date||'').slice(0,10);if(from&&day<from)return false;if(to&&day>to)return false;return true;};
+      const insideList=DB.donations.filter(d=>ids.includes(String(d.campaignId))&&inRange(d));
+      const insideTotal=insideList.reduce((a,d)=>a+n0(d.amount),0);
+
+      $('#gAnKpis').innerHTML=kpi('brand','wallet',usd(insideTotal),'داخل الحملات المختارة')+kpi('ok','calc',insideList.length,'عدد التبرعات')+kpi('gold','building',ids.length,'عدد الحملات المختارة');
+      countUp($('#gAnKpis'));
+
+      const byMonth={};insideList.forEach(d=>{const m=monthKey(d.date);byMonth[m]=(byMonth[m]||0)+n0(d.amount);});
+      const months=Object.keys(byMonth).sort();
+      $('#gAnTrend').innerHTML=months.length?svgLine(months,months.map(m=>Math.round(byMonth[m]))):emptyState('trend','لا بيانات ضمن هذه الفترة','وسّعي نطاق التاريخ أو اختاري حملات أخرى.');
+
+      $('#gAnCompare').innerHTML='<div class="spin" style="margin:20px auto"></div>';
+      try{
+        const [studentsData,schoolData]=await Promise.all([Platform.fetchExtra('students'),Platform.fetchExtra('school')]);
+        const outsideRecords=[]
+          .concat((studentsData&&studentsData.payments)||[])
+          .concat((schoolData&&schoolData.donations)||[]);
+        const outsideTotal=outsideRecords.filter(p=>{
+          const day=String(p.date??p.paymentDate??'').slice(0,10);
+          if(from&&day<from)return false;if(to&&day>to)return false;return true;
+        }).reduce((a,p)=>a+n0(p.amount??p.netAmount??p.net_amount),0);
+        const totalBoth=insideTotal+outsideTotal;
+        $('#gAnCompare').innerHTML=`${svgDonut([{label:'داخل الحملات',value:Math.round(insideTotal),color:cssv('--gold')},{label:'خارج الحملات (كفالات منتظمة)',value:Math.round(outsideTotal),color:cssv('--brand')}],{center:'إجمالي',centerVal:usd(totalBoth)})}${legend([{label:'داخل الحملات '+usd(insideTotal),color:cssv('--gold')},{label:'خارج الحملات '+usd(outsideTotal),color:cssv('--brand')}])}
+          <p style="color:var(--text3);font-size:12px;margin-top:10px">"خارج الحملات" = مجموع الكفالات الشهرية المنتظمة المسجّلة بمشروعي الطلبة الجامعيين والمدرسة عبر منصة ملهم (غير المرتبطة باسم حملة) بنفس الفترة الزمنية.</p>`;
+      }catch(err){
+        $('#gAnCompare').innerHTML=emptyState('alert','تعذّر تحميل بيانات المقارنة','تأكّدي من تسجيل الدخول بنجاح لمشروعي الطلبة والمدرسة أيضاً ضمن نفس الجلسة.');
+      }
+    };
+    $('#gAnApply').onclick=run;
+    $('#gAnClear').onclick=()=>{$('#gAnFrom').value='';$('#gAnTo').value='';$$('.gAnCk',checksHost).forEach(i=>i.checked=true);run();};
+    run();
+  }
+
+  function initReports(){
+    const r=()=>{$('#gRpView').innerHTML=report();countUp($('#gRpView'));};
+    $('#gRpCsv').onclick=exportCSV;r();
+  }
+  function report(){
+    const a=agg();
+    return `<div class="kpis">${kpi('brand','building',a.count,'عدد الحملات')}${kpi('gold','wallet',usd(a.required),'المطلوب')}${kpi('ok','check',usd(a.paid),'المحصّل')}${kpi('warn','clock',usd(a.remaining),'المتبقي')}</div>
+    <div class="slabel">تفصيل كل حملة</div>
+    <div class="tw"><table class="t"><thead><tr><th>الحملة</th><th>الحالة</th><th>المطلوب</th><th>المحصّل</th><th>المتبقي</th><th>النسبة</th><th>عدد التبرعات</th></tr></thead><tbody>${DB.campaigns.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.status)}</td><td class="num">${usd(c.required)}</td><td class="num">${usd(c.paid)}</td><td class="num">${usd(c.remaining)}</td><td class="num">${Math.round(n0(c.pct))}%</td><td class="num">${fmt(c.donationsCount)}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center">لا بيانات بعد</td></tr>'}</tbody></table></div>`;
+  }
+  function exportCSV(){
+    const head=['رقم الحملة','الاسم','الحالة','المطلوب','المحصّل','المتبقي','النسبة %','عدد التبرعات','تاريخ النشر'];
+    const rows=DB.campaigns.map(c=>[c.id,c.name,c.status,c.required,c.paid,c.remaining,c.pct,c.donationsCount,c.publishDate]);
+    Platform.downloadCSV([head,...rows],'الحملات');
+  }
+
+  return {setData,render,PAGES,ELEMENTS,agg};
+})();
 
 </script>
 <script>
@@ -1311,6 +1627,14 @@ const Platform = (function(){
     {id:'students',name:'مشروع الطلبة الجامعيين',sub:'الدعم الجامعي',icon:'cap',
      accent:'#2563a8',data:()=>EMBEDDED_STUDENTS,module:()=>StudentsProject,
      apiUrl:'https://script.google.com/macros/s/AKfycbw4WzjKaOqGFAJzk_fIA61zOt_ymWbO2Bn8_E31xpmGl-OYj5m2pMYcS976nBJ_EDhttg/exec'},
+    {id:'school',name:'مشروع مدرسة ملهم للأيتام',sub:'إدلب',icon:'building',
+     accent:'#7c3aed',data:()=>EMBEDDED_ORPHANS_SCHOOL,module:()=>OrphansSchoolProject,
+     /* ⚠️ رابط مبدئي غير مؤكَّد — إن لم يعمل تسجيل الدخول لهذا المشروع، أعيدي نشر Apps Script (Manage deployments → Edit → New version) وأرسلي رابط /exec الحالي لتحديثه هنا */
+     apiUrl:'https://script.google.com/macros/s/AKfycbzxajKuSLqSeU0C_tVJc4FjnJxgwt4d--OtcV-rgmLrTv49PpPIDUuvzd9A3o40kveNgg/exec'},
+    {id:'campaigns',name:'لوحة الحملات',sub:'حملات قسم التعليم',icon:'wallet',
+     accent:'#a8792b',data:()=>EMBEDDED_CAMPAIGNS,module:()=>CampaignsProject,
+     /* ⚠️ ضعي هنا رابط /exec الخاص بمشروع "لوحة الحملات - قسم التعليم" بعد نشره كـ Web App (راجعي التعليمات المرسلة) */
+     apiUrl:'PUT_CAMPAIGNS_API_URL_HERE'},
   ];
 
   let currentProject=null;
@@ -1330,12 +1654,19 @@ const Platform = (function(){
     return proj.apiUrl+(proj.apiUrl.includes('?')?'&':'?')+qs;
   }
   async function apiLogin(proj,user,pass){
-    const r=await fetch(apiUrlWith(proj,{action:'login',user,pass}));
-    return r.json();
+    // مشروع بلا رابط منشور فعلياً (بيانات مدمجة/معطّلة مؤقتاً) → لا يُعطّل تسجيل الدخول لباقي المشاريع
+    if(!proj.apiUrl||proj.apiUrl.startsWith('PUT_'))return{ok:true,token:'embedded'};
+    try{
+      const r=await fetch(apiUrlWith(proj,{action:'login',user,pass}));
+      return await r.json();
+    }catch(e){ return {ok:false,error:'تعذّر الاتصال بمشروع «'+proj.name+'» — تحقّقي من رابط النشر الخاص به'}; }
   }
   async function apiShareLogin(proj){
-    const r=await fetch(apiUrlWith(proj,{action:'shareLogin'}));
-    return r.json();
+    if(!proj.apiUrl||proj.apiUrl.startsWith('PUT_'))return{ok:true,token:'embedded'};
+    try{
+      const r=await fetch(apiUrlWith(proj,{action:'shareLogin'}));
+      return await r.json();
+    }catch(e){ return {ok:false,error:'تعذّر الاتصال'}; }
   }
 
   /* ============ تسجيل الدخول ============ */
@@ -1376,7 +1707,7 @@ const Platform = (function(){
     };
     setTimeout(()=>$('#loginUser')?.focus(),100);
   }
-  function logout(){ AUTH_TOKENS={}; try{sessionStorage.removeItem('cd_tokens');}catch(_){} location.hash=''; location.reload(); }
+  function logout(){ stopAutoRefresh(); AUTH_TOKENS={}; try{sessionStorage.removeItem('cd_tokens');}catch(_){} location.hash=''; location.reload(); }
 
   /* ============ تشغيل التطبيق (مدير) ============ */
   function showApp(){
@@ -1387,7 +1718,36 @@ const Platform = (function(){
     buildSidebar();
     openProject(PROJECTS[0].id);
     bindGlobalUI();
+    startAutoRefresh();
   }
+
+  /* ============ تحديث دوري تلقائي للبيانات الحيّة ============
+     كل 5 دقائق: يعيد جلب بيانات المشروع المفتوح حالياً من الـAPI (إن وُجد)
+     ويعيد رسم الصفحة النشطة فقط، دون إزعاج المستخدم (يتخطّى التحديث إن كان
+     الدرج مفتوحاً، أو كانت نافذة المتصفح غير ظاهرة حالياً). */
+  let _autoRefreshTimer=null;
+  const AUTO_REFRESH_MS=5*60*1000;
+  function startAutoRefresh(){
+    stopAutoRefresh();
+    _autoRefreshTimer=setInterval(async()=>{
+      if(document.hidden) return;
+      if($('#drawer')?.classList.contains('open')) return;
+      if(!currentProject||!currentModule) return;
+      const activePage=$('#projectHost .page.active')?.dataset.page;
+      delete _cache[currentProject.id];
+      try{
+        const loaded=await loadProjectData(currentProject);
+        currentModule.setData(loaded.data);
+        setSrcBadge(loaded.live,loaded.failed);
+        const res=currentModule.render($('#projectHost'),sharePerm);
+        currentPages=res.pages;
+        buildPageNav(res.pages,res.alertCount);
+        if(activePage&&res.pages.some(p=>p.id===activePage)) goPage(activePage);
+        else if(res.pages.length) goPage(res.pages[0].id);
+      }catch(_){ /* تجاهل بصمت — سيُعاد المحاولة بالدورة القادمة */ }
+    },AUTO_REFRESH_MS);
+  }
+  function stopAutoRefresh(){ if(_autoRefreshTimer){clearInterval(_autoRefreshTimer);_autoRefreshTimer=null;} }
 
   function buildSidebar(){
     $('#sbProjects').innerHTML=PROJECTS.map(p=>`
@@ -1427,6 +1787,16 @@ const Platform = (function(){
       _cache[proj.id]={data:proj.data(),live:false,failed:true};
     }
     return _cache[proj.id];
+  }
+
+  /* يتيح لوحدة عرض مشروع (مثل لوحة الحملات) قراءة بيانات مشروع آخر مباشرةً
+     (مثلاً لحساب مقارنة "داخل/خارج الحملات" من دفاتر دفعات الطلبة والمدرسة)
+     يستخدم نفس الكاش والتوكن الحاليين، ولا يُغيّر المشروع المفتوح حالياً بالواجهة. */
+  async function fetchExtra(id){
+    const proj=PROJECTS.find(p=>p.id===id);
+    if(!proj) return null;
+    try{ const loaded=await loadProjectData(proj); return loaded.data; }
+    catch(_){ return null; }
   }
 
   function setSrcBadge(live,failed){
@@ -1608,6 +1978,7 @@ const Platform = (function(){
     $$('.themeBtn').forEach(b=>b.onclick=toggleTheme);
     $('#dbg').onclick=closeDrawer;
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+    startAutoRefresh();
   }
 
   /* ============ init ============ */
@@ -1619,7 +1990,7 @@ const Platform = (function(){
   }
 
   return {init,openProject,goPage,openDrawer,closeDrawer,downloadCSV,toggleTheme,logout,
-          createShareLink,copyShareUrl,closeShareModal,openShareModal};
+          createShareLink,copyShareUrl,closeShareModal,openShareModal,fetchExtra};
 })();
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',Platform.init);
