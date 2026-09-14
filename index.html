@@ -1521,6 +1521,7 @@ const OrphansSchoolProject = (function(){
       <div class="kpis" id="oOvKpis"></div>
       <div class="slabel" id="oOvFinLabel">المتابعة المالية (من المنصة)</div>
       <div class="kpis" id="oOvFinKpis"></div>
+      <div id="oOvPeriodFinance"></div>
       <div class="slabel">التحليل البصري</div>
       <div class="grid g2" id="oOvCharts"></div>
     </section>`;
@@ -1722,6 +1723,36 @@ const OrphansSchoolProject = (function(){
       if(aK('donationsCount'))F.push(kpi('brand','trend',a.donationsCount,'عدد التبرعات','من سجل الدفعات'));
     }
     const fin=$('#oOvFinKpis');if(fin){fin.innerHTML=F.join('');countUp(fin);}
+
+    const periodBox=$('#oOvPeriodFinance');
+    if(periodBox){
+      if(mode==='historical'||mode==='active-only'){
+        const boxSet=new Set(S.map(s=>String(s.box)));
+        const dlist=DB.donations.filter(d=>{
+          if(!boxSet.has(String(d.box)))return false;
+          const day=String(d.date||'').slice(0,10);
+          if(ovFrom&&day<ovFrom)return false;
+          if(ovTo&&day>ovTo)return false;
+          return true;
+        });
+        const byM={};
+        dlist.forEach(d=>{
+          const m=String(d.date||'').slice(0,7);
+          if(m.length!==7)return;
+          byM[m]=byM[m]||{gross:0,net:0,fee:0,n:0};
+          byM[m].gross+=donationGross_(d);
+          byM[m].net+=donationNet_(d);
+          byM[m].fee+=donationFee_(d);
+          byM[m].n+=1;
+        });
+        const mk=Object.keys(byM).sort();
+        const activeN=S.filter(isActiveStudent).length;
+        periodBox.innerHTML=`<div class="slabel">تفصيل مالي${ovFrom||ovTo?' للفترة':''} · طلاب ضمن الفلتر: ${S.length} (نشط الآن: ${activeN})</div>
+          <div class="tw"><table class="t"><thead><tr><th>الشهر</th><th>عدد التبرعات</th><th>مجمل ($)</th><th>بعد الخصم ($)</th><th>الخصم ($)</th></tr></thead>
+          <tbody>${mk.length?mk.map(k=>{const b=byM[k];return `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td class="num">${usd(b.gross)}</td><td class="num" style="color:var(--ok);font-weight:800">${usd(b.net)}</td><td class="num" style="color:var(--warn)">${usd(b.fee)}</td></tr>`;}).join(''):`<tr><td colspan="5" style="text-align:center">لا تبرعات ضمن هذا النطاق</td></tr>`}</tbody></table></div>
+          <p style="font-size:.8rem;color:var(--text3);margin:8px 2px 0">التفاصيل كاملة لكل دفعة وطالب في تبويب «المتابعة المالية» (ينعكس عليه نفس الفلتر).</p>`;
+      }else periodBox.innerHTML='';
+    }
 
     const C=[];
     if(aC('gender')){const dsegs=[{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')}];
