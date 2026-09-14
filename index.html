@@ -1315,8 +1315,8 @@ const OrphansSchoolProject = (function(){
     });
   }
 
-  function agg(){
-    const S=DB.students,males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females,sponsored=S.filter(isSponsored).length;
+  function aggFromList_(S){
+    const males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females,sponsored=S.filter(isSponsored).length;
     /* تنبيه: كان الحساب السابق يستثني الطلاب غير المكفولين (progressPct=0) من
        المتوسط، فيظهر "متوسط الإنجاز" وكأنه 100% رغم أن أغلب الطلاب غير مكفولين
        أصلاً. الآن يُحتسب المتوسط على كل الطلاب فيعكس الواقع الحقيقي للبرنامج. */
@@ -1329,8 +1329,51 @@ const OrphansSchoolProject = (function(){
     const active=S.filter(isActiveStudent).length;
     return{total:S.length,males,females,genderUnknown,sponsored,unsponsored:S.length-sponsored,active,inactive:S.length-active,avgProgress,totalIn,totalPaid,remaining,donationsCount};
   }
+  function agg(){ return aggFromList_(DB.students); }
   function studentDonations(box){
     return DB.donations.filter(d=>String(d.box)===String(box)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  }
+
+  /* ============================================================
+     فلاتر "النظرة العامة": نشط فقط + فترة زمنية (تاريخ واحد أو مدى)
+     ------------------------------------------------------------
+     - "نشط فقط" بدون فترة: يصفّي القائمة الحيّة الحالية على حالة
+       is_active فقط، وباقي المؤشرات (المالية، متوسط الإنجاز...) تبقى بنفس
+       معناها الطبيعي (بيانات حيّة حالية لمجموعة مصفّاة).
+     - أي فترة زمنية (من/إلى، أو "إلى" فقط كتاريخ واحد): يعاد بناء من
+       "كان مستفيدًا خلال هذه الفترة" اعتمادًا على تاريخ أول/آخر كفالة
+       المسجّل لكل صندوق (sponsorStart/stopDate) + حالته الحالية (isActive)
+       لتقدير امتداد الكفالة حتى اليوم إن كانت مستمرة. هذا تقدير مبني على
+       أحدث البيانات المتوفرة وليس سجلاً تاريخيًا كاملاً لكل تغييرات الحالة.
+       التبرعات نفسها (المبلغ/العدد/المتبرعين) تُحسب بدقة من تواريخها
+       الفعلية بسجل التبرعات ضمن نفس الفترة.
+  ============================================================ */
+  let ovActiveOnly=false, ovFrom='', ovTo='';
+  function computeOverviewView_(){
+    const hasPeriod=!!(ovFrom||ovTo);
+    if(!hasPeriod){
+      const S=ovActiveOnly?DB.students.filter(isActiveStudent):DB.students;
+      return {mode:ovActiveOnly?'active-only':'live', S, a:aggFromList_(S)};
+    }
+    const from=ovFrom||'0000-01-01', to=ovTo||'9999-12-31';
+    const existedDuring=s=>{
+      const start=s.sponsorStart; if(!start) return false;
+      const end=s.isActive?'9999-12-31':(s.stopDate||start);
+      return start<=to && end>=from;
+    };
+    let S=DB.students.filter(existedDuring);
+    if(ovActiveOnly) S=S.filter(isActiveStudent);
+    const donationsInRange=DB.donations.filter(d=>{
+      const day=String(d.date||'').slice(0,10);
+      if(ovFrom && day<ovFrom) return false;
+      if(ovTo && day>ovTo) return false;
+      return true;
+    });
+    const a=aggFromList_(S);
+    a.periodDonationsTotal=donationsInRange.reduce((x,d)=>x+n0(d.amount),0);
+    a.periodDonationsCount=donationsInRange.length;
+    a.periodDonorsCount=new Set(donationsInRange.map(d=>d.donorId||d.donorEmail||d.donorName).filter(Boolean)).size;
+    return {mode:'historical', S, a};
   }
 
   /* قائمة الصفحات (للـ sidebar وللمشاركة) */
@@ -1352,6 +1395,7 @@ const OrphansSchoolProject = (function(){
     const allowPage=id=>!perm||!perm.pages||perm.pages.includes(id);
     const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
     const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
+    ovActiveOnly=false; ovFrom=''; ovTo=''; // إعادة تصفير فلاتر النظرة العامة عند كل تحميل بيانات جديد
     const a=agg();
 
     let pagesHtml='';
@@ -1363,7 +1407,7 @@ const OrphansSchoolProject = (function(){
     host.innerHTML=pagesHtml;
 
     // build dynamic content
-    if(allowPage('overview')){buildOverview(a,allowKpi,allowChart);}
+    if(allowPage('overview')){initOverviewFilters(allowKpi,allowChart);buildOverview(allowKpi,allowChart);}
     if(allowPage('finance'))buildFinance();
     if(allowPage('geo'))buildGeo();
     if(allowPage('students')){initFilters();renderCards();}
@@ -1376,11 +1420,22 @@ const OrphansSchoolProject = (function(){
   function pageOverview(a,aK,aC){
     const cov=a.total?Math.round(a.sponsored/a.total*100):0;
     return `<section class="page active" data-page="overview">
-      <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta">${a.total} طالب · تغطية ${cov}%</div></div>
+      <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta" id="oOvMeta">${a.total} طالب · تغطية ${cov}%</div></div>
+      <div class="toolbar" id="oOvToolbar">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:700">
+          <input type="checkbox" id="oOvActiveOnly" style="width:16px;height:16px;cursor:pointer"> ${ic('check')} نشط فقط
+        </label>
+        <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
+        <label style="display:flex;align-items:center;gap:6px">من <input type="date" id="oOvFrom"></label>
+        <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="oOvTo"></label>
+        <button class="btn pri" id="oOvApply">${ic('check')} تطبيق</button>
+        <button class="btn" id="oOvReset">${ic('trend')} الوضع الحالي (بدون فلترة زمنية)</button>
+      </div>
+      <div id="oOvModeBanner"></div>
       <div id="oOvAlert"></div>
-      <div class="slabel">المؤشرات العامة</div>
+      <div class="slabel" id="oOvKpisLabel">المؤشرات العامة</div>
       <div class="kpis" id="oOvKpis"></div>
-      <div class="slabel">المتابعة المالية (من المنصة)</div>
+      <div class="slabel" id="oOvFinLabel">المتابعة المالية (من المنصة)</div>
       <div class="kpis" id="oOvFinKpis"></div>
       <div class="slabel">التحليل البصري</div>
       <div class="grid g2" id="oOvCharts"></div>
@@ -1485,26 +1540,62 @@ const OrphansSchoolProject = (function(){
     <div id="oRpView"></div></section>`;}
 
   /* ---- builders ---- */
-  function buildOverview(a,aK,aC){
+  function initOverviewFilters(aK,aC){
+    const chk=$('#oOvActiveOnly'),from=$('#oOvFrom'),to=$('#oOvTo'),apply=$('#oOvApply'),reset=$('#oOvReset');
+    if(!chk)return;
+    chk.checked=ovActiveOnly;from.value=ovFrom;to.value=ovTo;
+    chk.onchange=()=>{ovActiveOnly=chk.checked;buildOverview(aK,aC);};
+    apply.onclick=()=>{ovFrom=from.value||'';ovTo=to.value||'';buildOverview(aK,aC);};
+    reset.onclick=()=>{ovFrom='';ovTo='';from.value='';to.value='';buildOverview(aK,aC);};
+  }
+  function buildOverview(aK,aC){
+    const {mode,S,a}=computeOverviewView_();
     const cov=a.total?Math.round(a.sponsored/a.total*100):0;
+    const meta=$('#oOvMeta');if(meta)meta.textContent=a.total+' طالب · تغطية '+cov+'%';
+
+    const banner=$('#oOvModeBanner');
+    if(banner){
+      if(mode==='historical'){
+        banner.innerHTML=`<div class="alertbar" style="background:var(--brandsoft);border-inline-start:3px solid var(--brand)"><div class="tx">
+          <b>${ic('cal')} عرض تاريخي${ovActiveOnly?' + نشط فقط':''} — من ${ovFrom||'بداية السجل'} إلى ${ovTo||'اليوم'}</b>
+          <p>الأرقام أدناه مبنية على تاريخ أول/آخر كفالة مسجّلة لكل صندوق، وهي تقدير قائم على أحدث البيانات المتوفرة، وليست سجلاً تاريخيًا كاملاً لكل تغييرات الحالة. مبالغ التبرعات محسوبة بدقة من تواريخها الفعلية ضمن نفس الفترة.</p></div></div>`;
+      }else if(mode==='active-only'){
+        banner.innerHTML=`<div class="alertbar" style="background:var(--oksoft);border-inline-start:3px solid var(--ok)"><div class="tx">
+          <b>${ic('check')} عرض الطلاب النشطين فقط</b><p>كل الأرقام أدناه تخص الصناديق النشطة حاليًا على المنصة فقط.</p></div></div>`;
+      }else{ banner.innerHTML=''; }
+    }
+
     const al=$('#oOvAlert');
-    if(al)al.innerHTML=a.unsponsored>0?`<div class="alertbar"><div class="big num">${a.unsponsored}</div>
+    if(al)al.innerHTML=(mode!=='historical'&&a.unsponsored>0)?`<div class="alertbar"><div class="big num">${a.unsponsored}</div>
       <div class="tx"><b>طلاب غير مكفولين يحتاجون متابعة</b><p>تغطية الكفالة ${cov}% — ${a.sponsored} مكفول من أصل ${a.total}.</p></div>
       <button class="btn pri" onclick="Platform.goPage('students')">${ic('chev')} عرض الطلاب</button></div>`:'';
+
     const K=[];
-    if(aK('total'))K.push(kpi('brand','child',a.total,'إجمالي الطلاب','مسجّلون'));
+    if(aK('total'))K.push(kpi('brand','child',a.total,mode==='historical'?'عدد الطلاب بالفترة':'إجمالي الطلاب','مسجّلون'));
     if(aK('males'))K.push(kpi('male','mars',a.males,'ذكور'));
     if(aK('females'))K.push(kpi('female','venus',a.females,'إناث'));
     if(aK('sponsored'))K.push(kpi('ok','heart',a.sponsored,'مكفولون','تغطية '+cov+'%'));
     if(aK('unsponsored'))K.push(kpi('bad','clock',a.unsponsored,'غير مكفولين'));
-    if(aK('active'))K.push(kpi('ok','check',a.active,'نشط على المنصة'));
-    if(aK('inactive'))K.push(kpi('warn','clock',a.inactive,'غير نشط'));
+    if(mode!=='historical'){
+      if(aK('active'))K.push(kpi('ok','check',a.active,'نشط على المنصة'));
+      if(aK('inactive'))K.push(kpi('warn','clock',a.inactive,'غير نشط'));
+    }
     if(aK('avgProgress'))K.push(kpi('gold','percent',a.avgProgress,'متوسط نسبة الإنجاز %'));
     $('#oOvKpis').innerHTML=K.join('');countUp($('#oOvKpis'));
+
+    const finLabel=$('#oOvFinLabel');
     const F=[];
-    if(aK('totalPaid'))F.push(kpi('gold','wallet',Math.round(a.totalPaid),'إجمالي المدفوع ($)','من المنصة'));
-    if(aK('remaining'))F.push(kpi('warn','calc',Math.round(a.remaining),'الرصيد المتبقي ($)'));
-    if(aK('donationsCount'))F.push(kpi('brand','trend',a.donationsCount,'عدد التبرعات','من سجل الدفعات'));
+    if(mode==='historical'){
+      if(finLabel)finLabel.textContent='المتابعة المالية بالفترة المحددة';
+      F.push(kpi('gold','wallet',Math.round(a.periodDonationsTotal||0),'إجمالي التبرعات بالفترة ($)'));
+      F.push(kpi('ok','calc',a.periodDonationsCount||0,'عدد التبرعات بالفترة'));
+      F.push(kpi('brand','users',a.periodDonorsCount||0,'عدد المتبرعين بالفترة'));
+    }else{
+      if(finLabel)finLabel.textContent='المتابعة المالية (من المنصة)';
+      if(aK('totalPaid'))F.push(kpi('gold','wallet',Math.round(a.totalPaid),'إجمالي المدفوع ($)','من المنصة'));
+      if(aK('remaining'))F.push(kpi('warn','calc',Math.round(a.remaining),'الرصيد المتبقي ($)'));
+      if(aK('donationsCount'))F.push(kpi('brand','trend',a.donationsCount,'عدد التبرعات','من سجل الدفعات'));
+    }
     const fin=$('#oOvFinKpis');if(fin){fin.innerHTML=F.join('');countUp(fin);}
 
     const C=[];
@@ -1512,18 +1603,17 @@ const OrphansSchoolProject = (function(){
       const dleg=[{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')}];
       if(a.genderUnknown>0){dsegs.push({label:'غير محدد',value:a.genderUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+a.genderUnknown,color:cssv('--text3')});}
       C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
-    if(aC('city')){const cc=topCounts(s=>s.city,8);C.push(`<div class="panel"><h3>توزّع المدن <span class="tag">أعلى 8</span></h3>${hbars(cc)}</div>`);}
-    if(aC('grade')){const gc=topCounts(s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع</span></h3>${hbars(gc,{color:cssv('--gold')})}</div>`);}
+    if(aC('grade')){const gc=topCounts2(S,s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع</span></h3>${hbars(gc,{color:cssv('--gold')})}</div>`);}
     if(aC('displaced')){
       /* نفس مشكلة الجنس: "غير محدد" كانت تُحتسب "مقيم" افتراضياً. نفصلها الآن. */
-      const disp=DB.students.filter(s=>String(s.displaced).trim()==='نازح').length;
-      const resident=DB.students.filter(s=>String(s.displaced).trim()==='مقيم').length;
+      const disp=S.filter(s=>String(s.displaced).trim()==='نازح').length;
+      const resident=S.filter(s=>String(s.displaced).trim()==='مقيم').length;
       const dUnknown=a.total-disp-resident;
       const dsegs=[{label:'نازح',value:disp,color:cssv('--warn')},{label:'مقيم',value:resident,color:cssv('--brand')}];
       const dleg=[{label:'نازح '+disp,color:cssv('--warn')},{label:'مقيم '+resident,color:cssv('--brand')}];
       if(dUnknown>0){dsegs.push({label:'غير محدد',value:dUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+dUnknown,color:cssv('--text3')});}
       C.push(`<div class="panel"><h3>نازح/مقيم <span class="tag">Ratio</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
-    if(aC('active')){
+    if(mode!=='historical'&&aC('active')){
       const aseg=[{label:'نشط',value:a.active,color:cssv('--ok')},{label:'غير نشط',value:a.inactive,color:cssv('--text3')}];
       C.push(`<div class="panel"><h3>حالة الصندوق على المنصة <span class="tag">is_active</span></h3>${svgDonut(aseg,{center:'طالب',centerVal:a.total})}${legend([{label:'نشط '+a.active,color:cssv('--ok')},{label:'غير نشط '+a.inactive,color:cssv('--text3')}])}</div>`);}
     $('#oOvCharts').innerHTML=C.join('');
@@ -1884,7 +1974,7 @@ const Platform = (function(){
      apiUrl:'https://script.google.com/macros/s/AKfycbw4WzjKaOqGFAJzk_fIA61zOt_ymWbO2Bn8_E31xpmGl-OYj5m2pMYcS976nBJ_EDhttg/exec'},
     {id:'school',name:'مشروع مدرسة ملهم للأيتام',sub:'إدلب',icon:'building',
      accent:'#7c3aed',data:()=>EMBEDDED_ORPHANS_SCHOOL,module:()=>OrphansSchoolProject,
-     apiUrl:'https://script.google.com/macros/s/AKfycbzgna9LPb44oDSSW7Gz4KxaxkkNpYjW0AcCbuvb8RM-YCyDqn9cC-8KiY9luvrxwufR5w/exec'},
+     apiUrl:'https://script.google.com/macros/s/AKfycbyj0ENtX1q6wRjNlndWvpgSXayBvwy3Xtffk5haaYBRUIeLlDah2tvVUbu-cabl29oW6Q/exec'},
     {id:'campaigns',name:'لوحة الحملات',sub:'حملات قسم التعليم',icon:'wallet',
      accent:'#a8792b',data:()=>EMBEDDED_CAMPAIGNS,module:()=>CampaignsProject,
      apiUrl:'https://script.google.com/macros/s/AKfycbxpWlT0bqi2keAURSZFpNsYdJ1BRtgMpZ65Fk5BdwgS1mv7-NC84k1ZdDe9csuxPyyj4g/exec'},
