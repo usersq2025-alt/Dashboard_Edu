@@ -102,6 +102,7 @@ function onOpen() {
       .addItem(dailyLabel, 'toggleDailySync')
       .addSeparator()
       .addItem('📊 إعادة بناء الإحصائيات الشهرية (مجمل/صافي/خصم)', 'rebuildMonthlyStatsFromLedger')
+      .addItem('📒 إعادة بناء السجل المالي الشهري (مجمل/صافي)', 'rebuildMonthlyFinanceSheet')
       .addItem('💵 إعادة حساب الصافي بحسم 22% على كل السجل', 'recalcLedgerNetsAt22')
       .addItem('🧹 تنظيف سجل التبرعات من المكررات (مرة واحدة)', 'dedupeDonationsLedgerOnce')
       .addToUi();
@@ -500,6 +501,7 @@ function syncPaymentsBatch_() {
       props.setProperty('PAY_CURSOR', '0');
       updateSponsorDatesFromLedger_();
       rebuildMonthlyStatsFromLedger_(true);
+      rebuildMonthlyFinanceSheet_(true);
       ScriptApp.getProjectTriggers().forEach(t => {
         if (t.getHandlerFunction() === 'syncPaymentsBatch_') ScriptApp.deleteTrigger(t);
       });
@@ -558,6 +560,7 @@ function recalcLedgerNetsAt22() {
   sh.getRange(start, lc.NET_AMOUNT, n, 1).setNumberFormat('$#,##0.00');
 
   rebuildMonthlyStatsFromLedger_(true);
+  rebuildMonthlyFinanceSheet_(true);
   const msg = 'أُعيد حساب الصافي بحسم إداري وتشغيلي 22% على ' + n + ' صف.';
   Logger.log(msg);
   if (ui) ui.alert(msg);
@@ -664,10 +667,57 @@ function durationLabel_(minDate, maxDate) {
   return '';
 }
 
+/* ===================== onEdit: تغيير السنة يعيد بناء الشيت ===================== */
+function onEdit(e) {
+  try {
+    if (!e || !e.range) return;
+    const sh = e.range.getSheet();
+    const name = sh.getName();
+    const r = e.range.getRow(), c = e.range.getColumn();
+    if (r !== 2 || c !== 2) return;
+    if (name === 'الإحصائيات الشهرية') {
+      rebuildMonthlyStatsFromLedger_(true, readYearCell_(sh));
+    } else if (name === 'السجل المالي الشهري') {
+      rebuildMonthlyFinanceSheet_(true, readYearCell_(sh));
+    }
+  } catch (err) {
+    Logger.log('onEdit: ' + err);
+  }
+}
+
+function readYearCell_(sh) {
+  const y = Number(sh.getRange(2, 2).getValue());
+  if (y >= 2000 && y <= 2100) return y;
+  return new Date().getFullYear();
+}
+
+function collectLedgerYears_(ledgerSheet, lc, headerRow) {
+  const years = {};
+  const last = ledgerSheet.getLastRow();
+  if (last <= headerRow) return [new Date().getFullYear()];
+  ledgerSheet.getRange(headerRow + 1, lc.DATE, last - headerRow, 1).getValues().forEach(r => {
+    const day = toDateKey_(r[0]);
+    if (!day) return;
+    const y = Number(day.slice(0, 4));
+    if (y >= 2000 && y <= 2100) years[y] = true;
+  });
+  const list = Object.keys(years).map(Number).sort();
+  if (!list.length) list.push(new Date().getFullYear());
+  return list;
+}
+
+function applyYearDropdown_(sh, years, selected) {
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(years.map(String), true)
+    .setAllowInvalid(false)
+    .build();
+  sh.getRange(2, 2).setDataValidation(rule).setValue(selected);
+}
+
 /* ===================== الإحصائيات الشهرية: مجمل / صافي / خصم ===================== */
 function rebuildMonthlyStatsFromLedger() { rebuildMonthlyStatsFromLedger_(false); }
 
-function rebuildMonthlyStatsFromLedger_(quiet) {
+function rebuildMonthlyStatsFromLedger_(quiet, yearOverride) {
   const ui = quiet ? null : safeUi_();
   const ss = SpreadsheetApp.getActive();
   let sh = ss.getSheetByName('الإحصائيات الشهرية');
@@ -676,8 +726,16 @@ function rebuildMonthlyStatsFromLedger_(quiet) {
   const ledgerFound = ensureLedgerSheet_();
   const ledgerSheet = ledgerFound.sheet, lc = ledgerFound.cols;
   const ledgerLast = ledgerSheet.getLastRow();
+  const yearList = collectLedgerYears_(ledgerSheet, lc, ledgerFound.headerRow);
 
-  const year = new Date().getFullYear();
+  let year = yearOverride;
+  if (year == null) {
+    try { year = readYearCell_(sh); } catch (_) { year = null; }
+  }
+  if (year == null || year < 2000) year = new Date().getFullYear();
+  if (yearList.indexOf(year) === -1) yearList.push(year);
+  yearList.sort();
+
   const byMonth = {};
   MONTHS_AR.forEach((_, i) => {
     byMonth[i] = { gross: 0, net: 0, fee: 0, count: 0, donors: {}, boxes: {} };
@@ -704,7 +762,6 @@ function rebuildMonthlyStatsFromLedger_(quiet) {
       });
   }
 
-  // عدد الطلاب الكلي (لتغطية تقريبية)
   const mainFound = findSheetByHeaders_(H);
   let totalStudents = 0;
   if (mainFound) {
@@ -725,46 +782,202 @@ function rebuildMonthlyStatsFromLedger_(quiet) {
     'عدد المتبرعين'
   ];
 
-  // clear() لا يلغي التجميد؛ الدمج عبر أعمدة مجمّدة/غير مجمّدة يرمي الخطأ
   sh.setFrozenRows(0);
   sh.setFrozenColumns(0);
   try { sh.getRange(1, 1, Math.max(1, sh.getMaxRows()), Math.max(1, sh.getMaxColumns())).breakApart(); } catch (_) {}
   sh.clear();
+  sh.clearConditionalFormatRules();
 
-  sh.getRange(1, 1).setValue('مدرسة ملهم للأيتام في إدلب — الإحصائيات الشهرية').setFontWeight('bold');
-  try {
-    sh.getRange(1, 1, 1, headers.length).merge();
-  } catch (_) {
-    // إن بقي تجميد أو دمج سابق — يكفي عنوان في A1
-  }
-  sh.getRange(2, 1).setValue('السنة');
-  sh.getRange(2, 2).setValue(year);
-  sh.getRange(3, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+  // عنوان
+  const titleRange = sh.getRange(1, 1, 1, headers.length);
+  titleRange.merge()
+    .setValue('مدرسة ملهم للأيتام في إدلب — الإحصائيات الشهرية')
+    .setFontWeight('bold').setFontSize(14).setFontColor('#ffffff')
+    .setBackground('#1e3a5f').setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sh.setRowHeight(1, 36);
 
-  let sumGross = 0, sumNet = 0, sumFee = 0, sumCount = 0;
+  sh.getRange(2, 1).setValue('السنة').setFontWeight('bold').setBackground('#e8eef5');
+  applyYearDropdown_(sh, yearList, year);
+  sh.getRange(2, 2).setFontWeight('bold').setBackground('#fff3cd').setHorizontalAlignment('center');
+  sh.getRange(2, 3, 1, 3).merge()
+    .setValue('غيّري السنة من القائمة ← تتحدّث الأرقام تلقائياً · حسم إداري وتشغيلي 22%')
+    .setFontColor('#5c6b7a').setFontSize(10);
+
+  const headerRow = sh.getRange(3, 1, 1, headers.length);
+  headerRow.setValues([headers]).setFontWeight('bold').setFontColor('#ffffff')
+    .setBackground('#2c5282').setHorizontalAlignment('center').setWrap(true);
+  sh.setRowHeight(3, 42);
+
+  let sumGross = 0, sumNet = 0, sumFee = 0, sumCount = 0, sumHelped = 0;
   const rows = MONTHS_AR.map((m, i) => {
     const b = byMonth[i];
     const helped = Object.keys(b.boxes).length;
     const notHelped = Math.max(0, totalStudents - helped);
     const cov = totalStudents ? Math.round((helped / totalStudents) * 1000) / 10 : 0;
     const donors = Object.keys(b.donors).length;
-    sumGross += b.gross; sumNet += b.net; sumFee += b.fee; sumCount += b.count;
+    sumGross += b.gross; sumNet += b.net; sumFee += b.fee; sumCount += b.count; sumHelped += helped;
     return [m, helped, notHelped, cov, b.gross, b.net, b.fee, b.count, donors];
   });
 
   sh.getRange(4, 1, 12, headers.length).setValues(rows);
+  // تظليل صفوف متناوب
+  for (let i = 0; i < 12; i++) {
+    if (i % 2 === 1) sh.getRange(4 + i, 1, 1, headers.length).setBackground('#f7fafc');
+  }
+
   sh.getRange(16, 1, 1, headers.length).setValues([[
-    'الإجمالي / السنة', '', '', '', sumGross, sumNet, sumFee, sumCount, ''
-  ]]).setFontWeight('bold');
+    'الإجمالي / السنة ' + year, '', '', '', sumGross, sumNet, sumFee, sumCount, ''
+  ]]).setFontWeight('bold').setBackground('#edf2f7');
 
   sh.getRange(4, 5, 13, 3).setNumberFormat('$#,##0.00');
-  sh.getRange(4, 4, 12, 1).setNumberFormat('0.0');
-  sh.setFrozenRows(3);
-  sh.setFrozenColumns(0);
+  sh.getRange(4, 4, 12, 1).setNumberFormat('0.0"%"');
+  sh.getRange(4, 2, 13, 2).setHorizontalAlignment('center');
+  sh.getRange(4, 1, 13, 1).setFontWeight('bold');
 
-  const msg = 'الإحصائيات الشهرية ✅\nمجمل السنة: $' + sumGross.toFixed(2) +
-    '\nبعد الخصم: $' + sumNet.toFixed(2) +
-    '\nالخصم: $' + sumFee.toFixed(2);
+  // ملاحظة أسفل
+  sh.getRange(18, 1, 1, headers.length).merge()
+    .setValue('الصافي = المجمل × 78%  ·  الحسم = المجمل × 22%  ·  المصدر: سجل التبرعات (وارد فقط)')
+    .setFontSize(9).setFontColor('#718096');
+
+  sh.setFrozenRows(3);
+  sh.setFrozenColumns(1);
+  sh.setColumnWidth(1, 110);
+  for (let c = 2; c <= 4; c++) sh.setColumnWidth(c, 120);
+  for (let c = 5; c <= 7; c++) sh.setColumnWidth(c, 170);
+  sh.setColumnWidth(8, 110);
+  sh.setColumnWidth(9, 110);
+
+  const msg = 'الإحصائيات الشهرية ✅ (' + year + ')\nمجمل: $' + sumGross.toFixed(2) +
+    '\nبعد الحسم: $' + sumNet.toFixed(2) +
+    '\nالحسم 22%: $' + sumFee.toFixed(2);
+  Logger.log(msg);
+  if (ui) ui.alert(msg);
+}
+
+/* ===================== السجل المالي الشهري (طالب × شهر + صافي) ===================== */
+function rebuildMonthlyFinanceSheet() { rebuildMonthlyFinanceSheet_(false); }
+
+function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
+  const ui = quiet ? null : safeUi_();
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName('السجل المالي الشهري');
+  if (!sh) sh = ss.insertSheet('السجل المالي الشهري');
+
+  const ledgerFound = ensureLedgerSheet_();
+  const ledgerSheet = ledgerFound.sheet, lc = ledgerFound.cols;
+  const ledgerLast = ledgerSheet.getLastRow();
+  const yearList = collectLedgerYears_(ledgerSheet, lc, ledgerFound.headerRow);
+
+  let year = yearOverride;
+  if (year == null) {
+    try { year = readYearCell_(sh); } catch (_) { year = null; }
+  }
+  if (year == null || year < 2000) year = new Date().getFullYear();
+  if (yearList.indexOf(year) === -1) yearList.push(year);
+  yearList.sort();
+
+  // تجميع: box -> { name, months[12] gross }
+  const byBox = {};
+  if (ledgerLast > ledgerFound.headerRow) {
+    ledgerSheet.getRange(ledgerFound.headerRow + 1, 1, ledgerLast - ledgerFound.headerRow, ledgerSheet.getLastColumn())
+      .getValues().forEach(r => {
+        const day = toDateKey_(r[lc.DATE - 1]);
+        if (!day || Number(day.slice(0, 4)) !== year) return;
+        const mi = Number(day.slice(5, 7)) - 1;
+        if (mi < 0 || mi > 11) return;
+        const box = normalize_(r[lc.BOX - 1]);
+        if (!box) return;
+        if (!byBox[box]) byBox[box] = { name: normalize_(r[lc.NAME - 1]), months: Array(12).fill(0) };
+        if (!byBox[box].name && normalize_(r[lc.NAME - 1])) byBox[box].name = normalize_(r[lc.NAME - 1]);
+        byBox[box].months[mi] += num_(r[lc.AMOUNT - 1]);
+      });
+  }
+
+  // أضف طلاب بلا تبرعات هذه السنة (من الشيت الرئيسي) ليظهروا بصفر؟ — نكتفي بمن لهم تبرعات + من بيانات الطلاب إن أمكن
+  const mainFound = findSheetByHeaders_(H);
+  if (mainFound) {
+    const start = mainFound.headerRow + 1;
+    const last = mainFound.sheet.getLastRow();
+    if (last >= start) {
+      const vals = mainFound.sheet.getRange(start, 1, last - start + 1, Math.max(mainFound.cols.NAME, mainFound.cols.BOX)).getValues();
+      vals.forEach(r => {
+        const box = normalize_(r[mainFound.cols.BOX - 1]);
+        const name = normalize_(r[mainFound.cols.NAME - 1]);
+        if (!box) return;
+        if (!byBox[box]) byBox[box] = { name: name, months: Array(12).fill(0) };
+        else if (!byBox[box].name && name) byBox[box].name = name;
+      });
+    }
+  }
+
+  const headers = ['رقم الصندوق', 'الاسم'].concat(MONTHS_AR)
+    .concat(['إجمالي مجمل ($)', 'بعد الحسم 22% ($)', 'الحسم الإداري والتشغيلي ($)']);
+
+  sh.setFrozenRows(0);
+  sh.setFrozenColumns(0);
+  try { sh.getRange(1, 1, Math.max(1, sh.getMaxRows()), Math.max(1, sh.getMaxColumns())).breakApart(); } catch (_) {}
+  sh.clear();
+
+  const titleRange = sh.getRange(1, 1, 1, headers.length);
+  titleRange.merge()
+    .setValue('مدرسة ملهم للأيتام — السجل المالي الشهري (مجمل لكل شهر + صافي بعد حسم 22%)')
+    .setFontWeight('bold').setFontSize(13).setFontColor('#ffffff')
+    .setBackground('#1e3a5f').setHorizontalAlignment('center');
+  sh.setRowHeight(1, 34);
+
+  sh.getRange(2, 1).setValue('السنة').setFontWeight('bold').setBackground('#e8eef5');
+  applyYearDropdown_(sh, yearList, year);
+  sh.getRange(2, 2).setFontWeight('bold').setBackground('#fff3cd').setHorizontalAlignment('center');
+  sh.getRange(2, 3, 1, 5).merge()
+    .setValue('الأشهر = المبلغ المجمل · الأعمدة الأخيرة = إجمالي مجمل / صافي 78% / حسم 22% · غيّري السنة للتحديث')
+    .setFontColor('#5c6b7a').setFontSize(10);
+
+  sh.getRange(3, 1, 1, headers.length).setValues([headers])
+    .setFontWeight('bold').setFontColor('#ffffff').setBackground('#2c5282')
+    .setHorizontalAlignment('center').setWrap(true);
+  sh.setRowHeight(3, 40);
+
+  const boxes = Object.keys(byBox).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
+  const out = boxes.map(box => {
+    const b = byBox[box];
+    const gross = b.months.reduce((s, v) => s + v, 0);
+    const net = netAfterAdminOps_(gross);
+    const fee = feeAdminOps_(gross);
+    return [box, b.name].concat(b.months.map(v => v || '')).concat([gross, net, fee]);
+  });
+
+  if (out.length) {
+    sh.getRange(4, 1, out.length, headers.length).setValues(out);
+    sh.getRange(4, 3, out.length, 12).setNumberFormat('$#,##0.00');
+    sh.getRange(4, 15, out.length, 3).setNumberFormat('$#,##0.00');
+    // تمييز أعمدة الصافي والحسم
+    sh.getRange(3, 15, 1, 1).setBackground('#276749');
+    sh.getRange(3, 16, 1, 1).setBackground('#c05621');
+    sh.getRange(4, 15, out.length, 1).setBackground('#f0fff4');
+    sh.getRange(4, 16, out.length, 1).setBackground('#fffaf0');
+  }
+
+  const totalRow = 4 + out.length;
+  let tGross = 0;
+  out.forEach(r => { tGross += num_(r[14]); });
+  sh.getRange(totalRow, 1, 1, headers.length).setValues([[
+    '', 'الإجمالي / ' + year, '', '', '', '', '', '', '', '', '', '', '', '',
+    tGross, netAfterAdminOps_(tGross), feeAdminOps_(tGross)
+  ]]).setFontWeight('bold').setBackground('#edf2f7');
+  sh.getRange(totalRow, 15, 1, 3).setNumberFormat('$#,##0.00');
+
+  sh.setFrozenRows(3);
+  sh.setFrozenColumns(2);
+  sh.setColumnWidth(1, 100);
+  sh.setColumnWidth(2, 180);
+  for (let c = 3; c <= 14; c++) sh.setColumnWidth(c, 88);
+  sh.setColumnWidth(15, 130);
+  sh.setColumnWidth(16, 140);
+  sh.setColumnWidth(17, 160);
+
+  const msg = 'السجل المالي الشهري ✅ (' + year + ')\nطلاب: ' + out.length +
+    '\nمجمل: $' + tGross.toFixed(2) +
+    '\nبعد الحسم: $' + netAfterAdminOps_(tGross).toFixed(2);
   Logger.log(msg);
   if (ui) ui.alert(msg);
 }
