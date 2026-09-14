@@ -74,6 +74,8 @@ const MASTER_TO_DASHBOARD_KEY = {
 };
 
 const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+/** الحسم الإداري والتشغيلي = 22% من المبلغ المجمل → الصافي = 78% */
+const ADMIN_OPS_FEE_RATE = 0.22;
 const HEADER_SEARCH_ROWS = 10;
 const DISCOVERY_BATCH_SIZE = 30;
 const DISCOVERY_MAX_PAGES = 300;
@@ -82,27 +84,38 @@ const PAYMENTS_TIME_BUDGET_MS = 5 * 60 * 1000;
 
 /* ===================== قائمة ===================== */
 function onOpen() {
-  const ui = safeUi_();
-  if (!ui) return;
-  const dailyOn = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'dailySyncRun');
-  ui.createMenu('🔄 مزامنة منصة ملهم')
-    .addItem('🔑 تعيين مفتاح API', 'setApiKey')
-    .addSeparator()
-    .addItem('🔄 تحديث وجلب البيانات', 'updateAndFetchAll')
-    .addSeparator()
-    .addItem(dailyOn ? '⏰ إيقاف التحديث اليومي التلقائي' : '⏰ تفعيل التحديث اليومي التلقائي', 'toggleDailySync')
-    .addSeparator()
-    .addItem('📊 إعادة بناء الإحصائيات الشهرية (مجمل/صافي/خصم)', 'rebuildMonthlyStatsFromLedger')
-    .addItem('🧹 تنظيف سجل التبرعات من المكررات (مرة واحدة)', 'dedupeDonationsLedgerOnce')
-    .addToUi();
+  // مهم: لا تستدعِ ScriptApp.getProjectTriggers() هنا بدون try —
+  // فشلها في simple trigger يمنع ظهور كل القوائم المخصّصة.
+  try {
+    const ui = SpreadsheetApp.getUi();
+    let dailyLabel = '⏰ تفعيل التحديث اليومي التلقائي';
+    try {
+      const dailyOn = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'dailySyncRun');
+      if (dailyOn) dailyLabel = '⏰ إيقاف التحديث اليومي التلقائي';
+    } catch (_) { /* بدون صلاحيات بعد — نعرض التسمية الافتراضية */ }
 
-  ui.createMenu('🔗 مزامنة الملف الأم')
-    .addItem('▶ بدء المزامنة', 'syncFromMasterFile')
-    .addToUi();
+    ui.createMenu('🔄 مزامنة منصة ملهم')
+      .addItem('🔑 تعيين مفتاح API', 'setApiKey')
+      .addSeparator()
+      .addItem('🔄 تحديث وجلب البيانات', 'updateAndFetchAll')
+      .addSeparator()
+      .addItem(dailyLabel, 'toggleDailySync')
+      .addSeparator()
+      .addItem('📊 إعادة بناء الإحصائيات الشهرية (مجمل/صافي/خصم)', 'rebuildMonthlyStatsFromLedger')
+      .addItem('💵 إعادة حساب الصافي بحسم 22% على كل السجل', 'recalcLedgerNetsAt22')
+      .addItem('🧹 تنظيف سجل التبرعات من المكررات (مرة واحدة)', 'dedupeDonationsLedgerOnce')
+      .addToUi();
 
-  ui.createMenu('🌐 داشبورد HTML')
-    .addItem('🔑 تعيين بيانات دخول الداشبورد', 'setWebAppCredentials')
-    .addToUi();
+    ui.createMenu('🔗 مزامنة الملف الأم')
+      .addItem('▶ بدء المزامنة', 'syncFromMasterFile')
+      .addToUi();
+
+    ui.createMenu('🌐 داشبورد HTML')
+      .addItem('🔑 تعيين بيانات دخول الداشبورد', 'setWebAppCredentials')
+      .addToUi();
+  } catch (e) {
+    Logger.log('onOpen menu error: ' + e);
+  }
 }
 
 function setApiKey() {
@@ -143,6 +156,13 @@ function normalizeArabic_(str) {
     .replace(/[\u064B-\u0652]/g, '');
 }
 function num_(v) { if (v === '' || v == null) return 0; const n = Number(v); return isNaN(n) ? 0 : n; }
+function netAfterAdminOps_(gross) {
+  const g = num_(gross);
+  return Math.round(g * (1 - ADMIN_OPS_FEE_RATE) * 100) / 100;
+}
+function feeAdminOps_(gross) {
+  return Math.max(0, num_(gross) - netAfterAdminOps_(gross));
+}
 function asText_(v) { return v == null ? '' : String(v).trim(); }
 function formatNow_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Damascus', 'yyyy-MM-dd HH:mm');
@@ -408,8 +428,10 @@ function syncPaymentsBatch_() {
         const idKey = 'WS-' + p.id;
         if (existingIds[idKey]) return;
         existingIds[idKey] = true;
+        const gross = num_(p.amount);
+        // الحسم الإداري والتشغيلي 22% — لا نعتمد على net_amount من المنصة
         newRows.push([
-          box, name, idKey, apiDateOnly_(p.date), num_(p.amount), num_(p.net_amount),
+          box, name, idKey, apiDateOnly_(p.date), gross, netAfterAdminOps_(gross),
           (p.donor && p.donor.id) || '', (p.donor && p.donor.name) || '', (p.donor && p.donor.email) || ''
         ]);
       });
@@ -518,6 +540,27 @@ function dedupeDonationsLedgerOnce() {
   Logger.log(msg);
   if (ui) ui.alert(msg);
   rebuildMonthlyStatsFromLedger_(true);
+}
+
+/* ===================== إعادة حساب الصافي بحسم 22% ===================== */
+function recalcLedgerNetsAt22() {
+  const ui = safeUi_();
+  const found = ensureLedgerSheet_();
+  const sh = found.sheet, lc = found.cols;
+  const start = found.headerRow + 1;
+  const last = sh.getLastRow();
+  if (last < start) { if (ui) ui.alert('سجل التبرعات فارغ.'); return; }
+
+  const n = last - start + 1;
+  const amounts = sh.getRange(start, lc.AMOUNT, n, 1).getValues();
+  const nets = amounts.map(r => [netAfterAdminOps_(r[0])]);
+  sh.getRange(start, lc.NET_AMOUNT, n, 1).setValues(nets);
+  sh.getRange(start, lc.NET_AMOUNT, n, 1).setNumberFormat('$#,##0.00');
+
+  rebuildMonthlyStatsFromLedger_(true);
+  const msg = 'أُعيد حساب الصافي بحسم إداري وتشغيلي 22% على ' + n + ' صف.';
+  Logger.log(msg);
+  if (ui) ui.alert(msg);
 }
 
 /* ===================== تواريخ الكفالة ===================== */
@@ -648,8 +691,8 @@ function rebuildMonthlyStatsFromLedger_(quiet) {
         const mi = Number(day.slice(5, 7)) - 1;
         if (mi < 0 || mi > 11) return;
         const gross = num_(r[lc.AMOUNT - 1]);
-        const net = num_(r[lc.NET_AMOUNT - 1]);
-        const fee = Math.max(0, gross - net);
+        const net = netAfterAdminOps_(gross);
+        const fee = feeAdminOps_(gross);
         const box = normalize_(r[lc.BOX - 1]);
         const donor = String(r[lc.DONOR_ID - 1] || r[lc.DONOR_NAME - 1] || '').trim();
         byMonth[mi].gross += gross;
@@ -676,14 +719,24 @@ function rebuildMonthlyStatsFromLedger_(quiet) {
     'غير المتبرع لهم',
     'نسبة التغطية %',
     'إجمالي التبرعات المجملة ($)',
-    'بعد الخصم الإداري ($)',
-    'الخصم الإداري ($)',
+    'بعد الحسم الإداري والتشغيلي ($)',
+    'الحسم الإداري والتشغيلي 22% ($)',
     'عدد التبرعات',
     'عدد المتبرعين'
   ];
 
+  // clear() لا يلغي التجميد؛ الدمج عبر أعمدة مجمّدة/غير مجمّدة يرمي الخطأ
+  sh.setFrozenRows(0);
+  sh.setFrozenColumns(0);
+  try { sh.getRange(1, 1, Math.max(1, sh.getMaxRows()), Math.max(1, sh.getMaxColumns())).breakApart(); } catch (_) {}
   sh.clear();
-  sh.getRange(1, 1, 1, headers.length).merge().setValue('مدرسة ملهم للأيتام في إدلب — الإحصائيات الشهرية').setFontWeight('bold');
+
+  sh.getRange(1, 1).setValue('مدرسة ملهم للأيتام في إدلب — الإحصائيات الشهرية').setFontWeight('bold');
+  try {
+    sh.getRange(1, 1, 1, headers.length).merge();
+  } catch (_) {
+    // إن بقي تجميد أو دمج سابق — يكفي عنوان في A1
+  }
   sh.getRange(2, 1).setValue('السنة');
   sh.getRange(2, 2).setValue(year);
   sh.getRange(3, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
@@ -707,6 +760,7 @@ function rebuildMonthlyStatsFromLedger_(quiet) {
   sh.getRange(4, 5, 13, 3).setNumberFormat('$#,##0.00');
   sh.getRange(4, 4, 12, 1).setNumberFormat('0.0');
   sh.setFrozenRows(3);
+  sh.setFrozenColumns(0);
 
   const msg = 'الإحصائيات الشهرية ✅\nمجمل السنة: $' + sumGross.toFixed(2) +
     '\nبعد الخصم: $' + sumNet.toFixed(2) +
