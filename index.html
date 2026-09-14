@@ -241,6 +241,57 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 @media(max-width:720px){.brand .t small{display:none}.topbar{flex-wrap:wrap;height:auto;padding:9px 13px}.nav{order:3;width:100%}.wrap{padding:16px 13px 90px}.dg{grid-template-columns:1fr}.df.full{grid-column:span 1}.georow{grid-template-columns:110px 1fr auto}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
+/* ---- responsive polish: toolbars, tables, school tabs ---- */
+.toolbar .tb-hint{font-size:.74rem;font-weight:700;color:var(--text3)}
+.toolbar label{display:inline-flex;align-items:center;gap:6px;font-size:.84rem;font-weight:600;color:var(--text2)}
+.toolbar input[type=date]{min-width:0;flex:0 1 auto;width:auto}
+.money-pair{display:flex;flex-direction:column;gap:2px;line-height:1.25}
+.money-pair .gross{font-weight:800}
+.money-pair .net{font-size:.78rem;color:var(--ok);font-weight:700}
+.money-pair .fee{font-size:.72rem;color:var(--warn);font-weight:600}
+.panel .chart-legend{padding:0 4px 4px}
+@media(max-width:980px){
+  .toolbar{gap:8px}
+  .toolbar input,.toolbar select,.toolbar .btn{flex:1 1 calc(50% - 8px);min-width:140px}
+  .toolbar input[type=search],.toolbar input[type=text],.toolbar #oStSearch,#oFinSearch,#cChSearch,#sStSearch,#cAlSearch{flex:1 1 100%;min-width:0}
+  .toolbar .cnt,.toolbar .tb-hint{flex:1 1 100%;text-align:center}
+  .hbar{grid-template-columns:minmax(72px,110px) 1fr auto;gap:8px}
+  .wbar{grid-template-columns:100px 1fr auto}
+  #oGeoMap{height:min(360px,55vh)!important}
+}
+@media(max-width:600px){
+  .topbar2 .pname{max-width:120px;font-size:.92rem}
+  .page-nav button{font-size:.84rem;padding:7px 10px}
+  .src{display:none}
+  .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .kpi .v{font-size:1.5rem}
+  .share-modal{max-height:92vh}
+  .sh-row{flex-wrap:wrap}.sh-row label{min-width:auto;width:100%}
+  .dg{grid-template-columns:1fr}.df.full{grid-column:span 1}
+  .wrap{padding:14px 12px 80px}
+  .phead h1{font-size:1.22rem}
+  .phead .meta{width:100%;margin-inline-start:0;margin-top:4px}
+  .toolbar{padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+  .toolbar input,.toolbar select,.toolbar .btn{flex:1 1 100%;min-width:0}
+  .toolbar input[type=date]{flex:1 1 calc(50% - 6px)}
+  .cards{grid-template-columns:1fr;gap:12px}
+  .dms{grid-template-columns:repeat(3,1fr)}
+  .drawer{width:100vw}
+  table.t{font-size:.8rem}
+  table.t thead th,table.t tbody td,table.t tfoot td{padding:9px 10px}
+  .alertbar{flex-wrap:wrap;gap:10px}
+  .alertbar .btn{width:100%;justify-content:center}
+  .slabel{flex-wrap:wrap;gap:6px}
+  .slabel .hint,.slabel .tag,.slabel .cnt{margin-inline-start:0}
+}
+@media(max-width:420px){
+  .kpis{grid-template-columns:1fr 1fr}
+  .g2{grid-template-columns:1fr}
+  .kpi .v{font-size:1.28rem}
+  .hbar{grid-template-columns:1fr;gap:4px}
+  .hbv{text-align:start}
+}
+
 /* ===================================================================
    إضافات المنصّة: Sidebar · تسجيل الدخول · المشاركة
    =================================================================== */
@@ -335,21 +386,6 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 }
 @media(min-width:981px){
   .sb-overlay{display:none}
-}
-@media(max-width:600px){
-  .topbar2 .pname{max-width:120px;font-size:.92rem}
-  .page-nav button{font-size:.84rem;padding:7px 10px}
-  .src{display:none} /* الشارة تختفي على الجوال لتوفير مساحة */
-  .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-  .kpi .v{font-size:1.5rem}
-  .share-modal{max-height:92vh}
-  .sh-row{flex-wrap:wrap}.sh-row label{min-width:auto;width:100%}
-  .dg{grid-template-columns:1fr}.df.full{grid-column:span 1}
-  .wrap{padding:14px 12px 80px}
-}
-@media(max-width:420px){
-  .kpis{grid-template-columns:1fr 1fr}
-  .g2{grid-template-columns:1fr}
 }
 
 </style>
@@ -604,14 +640,21 @@ function svgStacked(labels,A,B,opts={}){
 }
 function svgLine(labels,values,opts={}){
   const W=opts.w||560,H=opts.h||260,pad={t:14,r:14,b:34,l:46};
-  const max=Math.max(1,...values),iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
-  const col=opts.color||cssv('--brand'),stepX=iw/Math.max(1,labels.length-1);let g='';
+  const series=opts.series||[{values,color:opts.color||cssv('--brand'),label:opts.label||''}];
+  const allVals=series.flatMap(s=>s.values||[]);
+  const max=Math.max(1,...allVals),iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  const stepX=iw/Math.max(1,labels.length-1);let g='';
   for(let i=0;i<=4;i++){const y=pad.t+ih-(ih*i/4);g+=`<line class="gl" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/><text class="axis" x="${pad.l-6}" y="${y+3}" text-anchor="end">${Math.round(max*i/4)}</text>`;}
-  const pts=values.map((v,i)=>[pad.l+stepX*i,pad.t+ih-ih*(v/max)]);
-  const dL=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-  g+=`<path d="${dL} L ${pts[pts.length-1][0].toFixed(1)} ${pad.t+ih} L ${pts[0][0].toFixed(1)} ${pad.t+ih} Z" fill="${col}" opacity=".12"/>`;
-  g+=`<path d="${dL}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`;
-  pts.forEach((p,i)=>{g+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="${col}"><title>${esc(labels[i])}: ${values[i]}</title></circle><text class="axis" x="${p[0].toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(labels[i])}</text>`;});
+  series.forEach((s,si)=>{
+    const vals=s.values||[]; if(!vals.length)return;
+    const col=s.color||cssv('--brand');
+    const pts=vals.map((v,i)=>[pad.l+stepX*i,pad.t+ih-ih*(v/max)]);
+    const dL=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    if(si===0) g+=`<path d="${dL} L ${pts[pts.length-1][0].toFixed(1)} ${pad.t+ih} L ${pts[0][0].toFixed(1)} ${pad.t+ih} Z" fill="${col}" opacity=".10"/>`;
+    g+=`<path d="${dL}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    pts.forEach((p,i)=>{g+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="${col}"><title>${esc(labels[i])}${s.label?(' · '+s.label):''}: ${vals[i]}</title></circle>`;});
+  });
+  labels.forEach((lb,i)=>{const x=pad.l+stepX*i;g+=`<text class="axis" x="${x.toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(lb)}</text>`;});
   return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
 }
 function svgDonut(segs,opts={}){
@@ -1295,7 +1338,12 @@ const OrphansSchoolProject = (function(){
   }
 
   function setData(j){
-    DB.donations=(j.donations||[]).map(d=>({...d,amount:parseMoney(d.amount),netAmount:parseMoney(d.netAmount||d.net)}));
+    DB.donations=(j.donations||[]).map(d=>{
+      const gross=parseMoney(d.amount);
+      const hasNet=d.netAmount!=null&&d.netAmount!==''||d.net!=null&&d.net!=='';
+      const net=hasNet?parseMoney(d.netAmount??d.net):gross;
+      return {...d,amount:gross,netAmount:net,adminFee:Math.max(0,gross-net)};
+    });
     DB.students=(j.students||[]).map(s=>{
       if(!s)return s;
       const row={
@@ -1314,6 +1362,9 @@ const OrphansSchoolProject = (function(){
       return row;
     });
   }
+  function donationGross_(d){return n0(d&&d.amount);}
+  function donationNet_(d){return n0(d&&(d.netAmount!=null?d.netAmount:d.amount));}
+  function donationFee_(d){return Math.max(0,donationGross_(d)-donationNet_(d));}
 
   function aggFromList_(S){
     const males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females,sponsored=S.filter(isSponsored).length;
@@ -1372,7 +1423,9 @@ const OrphansSchoolProject = (function(){
       return true;
     });
     const a=aggFromList_(S);
-    a.periodDonationsTotal=donationsInRange.reduce((x,d)=>x+n0(d.amount),0);
+    a.periodDonationsTotal=donationsInRange.reduce((x,d)=>x+donationGross_(d),0);
+    a.periodDonationsNet=donationsInRange.reduce((x,d)=>x+donationNet_(d),0);
+    a.periodDonationsFee=Math.max(0,(a.periodDonationsTotal||0)-(a.periodDonationsNet||0));
     a.periodDonationsCount=donationsInRange.length;
     a.periodDonorsCount=new Set(donationsInRange.map(d=>d.donorId||d.donorEmail||d.donorName).filter(Boolean)).size;
     return {mode:'historical', S, a};
@@ -1460,7 +1513,7 @@ const OrphansSchoolProject = (function(){
         <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="oOvTo"></label>
         <button class="btn pri" id="oOvApply">${ic('check')} تطبيق</button>
         <button class="btn" id="oOvReset">${ic('trend')} الوضع الحالي (بدون فلترة زمنية)</button>
-        <span class="cnt" style="margin-inline-start:auto">الفلاتر تنعكس على كل التبويبات</span>
+        <span class="cnt tb-hint" style="margin-inline-start:auto">الفلاتر تنعكس على كل التبويبات</span>
       </div>
       <div id="oOvModeBanner"></div>
       <div id="oOvAlert"></div>
@@ -1473,23 +1526,24 @@ const OrphansSchoolProject = (function(){
     </section>`;
   }
   function pageFinance(){return `<section class="page" data-page="finance">
-    <div class="phead"><div><div class="eb">المالية</div><h1>متابعة التبرعات الواردة</h1></div></div>
+    <div class="phead"><div><div class="eb">المالية</div><h1>متابعة التبرعات الواردة</h1></div>
+      <div class="meta">مجمل الوارد · بعد الخصم الإداري</div></div>
     <div id="oFinScope"></div>
     <div class="toolbar">
-      <label style="display:flex;align-items:center;gap:6px">من <input type="date" id="oFinFrom"></label>
-      <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="oFinTo"></label>
+      <label>من <input type="date" id="oFinFrom"></label>
+      <label>إلى <input type="date" id="oFinTo"></label>
       <button class="btn pri" id="oFinApply">تطبيق الفترة</button>
       <button class="btn" id="oFinClear">كل الفترة</button>
-      <input id="oFinSearch" placeholder="بحث بالاسم أو رقم الصندوق أو المتبرع…" style="min-width:220px"/>
+      <input id="oFinSearch" type="search" placeholder="بحث بالاسم أو رقم الصندوق أو المتبرع…"/>
       <select id="oFinCity"><option value="">كل المدن</option></select>
     </div>
     <div class="kpis" id="oFinKpis"></div>
-    <div class="slabel">اتجاه التبرعات شهرياً (ضمن الفترة والفلاتر)</div>
-    <div class="panel"><div id="oFinTrend"></div></div>
-    <div class="slabel">أكثر الطلاب استفادة من التبرعات (بالفترة المحددة) <span class="tag">اضغط اسم الطالب لعرض بطاقته</span></div>
+    <div class="slabel">اتجاه التبرعات شهرياً <span class="hint">مجمل مقابل صافي بعد الخصم</span></div>
+    <div class="panel"><div id="oFinTrend"></div><div id="oFinTrendLeg"></div></div>
+    <div class="slabel">أكثر الطلاب استفادة (صافي بعد الخصم) <span class="tag">اضغط الاسم لفتح البطاقة</span></div>
     <div class="panel"><div id="oFinTop"></div></div>
-    <div class="slabel">سجل التبرعات (بالفترة والفلاتر المحددة، أحدث 300) <span class="cnt" id="oFinCount"></span></div>
-    <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>الطالب</th><th>رقم الصندوق</th><th>المبلغ</th><th>المتبرع</th></tr></thead><tbody id="oFinTable"></tbody></table></div>
+    <div class="slabel">سجل التبرعات (أحدث 300) <span class="cnt" id="oFinCount"></span></div>
+    <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>الطالب</th><th>الصندوق</th><th>المجمل</th><th>الصافي</th><th>الخصم الإداري</th><th>المتبرع</th></tr></thead><tbody id="oFinTable"></tbody></table></div>
   </section>`;}
   let renderFinance_=null;
   function buildFinance(){
@@ -1521,26 +1575,50 @@ const OrphansSchoolProject = (function(){
         if(q&&!`${d.name} ${d.box} ${d.donorName}`.toLowerCase().includes(q))return false;
         return true;
       });
-      const total=list.reduce((a,d)=>a+n0(d.amount),0);
+      const total=list.reduce((a,d)=>a+donationGross_(d),0);
+      const totalNet=list.reduce((a,d)=>a+donationNet_(d),0);
+      const totalFee=Math.max(0,total-totalNet);
       const donors=new Set(list.map(d=>d.donorId||d.donorEmail||d.donorName).filter(Boolean)).size;
       const students=new Set(list.map(d=>d.box)).size;
-      $('#oFinKpis').innerHTML=kpi('brand','wallet',Math.round(total),'إجمالي التبرعات بالفترة ($)')+kpi('ok','calc',list.length,'عدد التبرعات')+kpi('gold','users',donors,'عدد المتبرعين')+kpi('warn','child',students,'عدد الطلاب المستفيدين');
+      $('#oFinKpis').innerHTML=
+        kpi('brand','wallet',Math.round(total),'التبرعات المجملة ($)')+
+        kpi('ok','heart',Math.round(totalNet),'بعد الخصم الإداري ($)')+
+        kpi('warn','calc',Math.round(totalFee),'الخصم الإداري ($)')+
+        kpi('gold','trend',list.length,'عدد التبرعات')+
+        kpi('gold','users',donors,'عدد المتبرعين')+
+        kpi('warn','child',students,'طلاب مستفيدون');
       countUp($('#oFinKpis'));
-      const byM={};
-      list.forEach(d=>{const m=String(d.date||'').slice(0,7);if(m.length===7)byM[m]=(byM[m]||0)+n0(d.amount);});
+      const byM={},byMNet={};
+      list.forEach(d=>{const m=String(d.date||'').slice(0,7);if(m.length===7){byM[m]=(byM[m]||0)+donationGross_(d);byMNet[m]=(byMNet[m]||0)+donationNet_(d);}});
       const mk=Object.keys(byM).sort();
-      const tr=$('#oFinTrend');
-      if(tr)tr.innerHTML=mk.length?svgLine(mk.map(k=>k.slice(2)),mk.map(k=>Math.round(byM[k]))):emptyState('trend','لا تبرعات ضمن هذه الفلاتر','وسّعي نطاق التاريخ أو غيّري المدينة.');
+      const tr=$('#oFinTrend'),leg=$('#oFinTrendLeg');
+      if(tr){
+        if(mk.length){
+          tr.innerHTML=svgLine(mk.map(k=>k.slice(2)),mk.map(k=>Math.round(byM[k])),{
+            series:[
+              {values:mk.map(k=>Math.round(byM[k])),color:cssv('--gold'),label:'مجمل'},
+              {values:mk.map(k=>Math.round(byMNet[k]||0)),color:cssv('--ok'),label:'صافي'}
+            ]
+          });
+          if(leg)leg.innerHTML=legend([{label:'مجمل الوارد',color:cssv('--gold')},{label:'صافي بعد الخصم',color:cssv('--ok')}]);
+        }else{
+          tr.innerHTML=emptyState('trend','لا تبرعات ضمن هذه الفلاتر','وسّعي نطاق التاريخ أو غيّري المدينة.');
+          if(leg)leg.innerHTML='';
+        }
+      }
       const byStudent={};
-      list.forEach(d=>{const k=String(d.box);byStudent[k]=byStudent[k]||{label:d.name||('#'+d.box),box:k,value:0};byStudent[k].value+=n0(d.amount);});
+      list.forEach(d=>{const k=String(d.box);byStudent[k]=byStudent[k]||{label:d.name||('#'+d.box),box:k,value:0,gross:0};byStudent[k].value+=donationNet_(d);byStudent[k].gross+=donationGross_(d);});
       const top=Object.values(byStudent).sort((a,b)=>b.value-a.value).slice(0,10);
       $('#oFinTop').innerHTML=top.length?`<div class="hbars">${top.map(t=>{const w=(t.value/Math.max(1,top[0].value)*100).toFixed(1);
         return `<div class="hbar" style="cursor:pointer" onclick="OrphansSchoolProject.openCard('${esc(t.box)}')"><div class="hbl" title="${esc(t.label)}">${esc(t.label)}</div>
-          <div class="hbt"><div class="hbf" style="width:${w}%;background:${cssv('--gold')}"></div></div>
-          <div class="hbv num">${Math.round(t.value)}</div></div>`;}).join('')}</div>`:emptyState('search','لا نتائج بهذه الفلاتر','وسّعي نطاق التاريخ أو غيّري البحث.');
+          <div class="hbt"><div class="hbf" style="width:${w}%;background:${cssv('--ok')}"></div></div>
+          <div class="hbv num money-pair"><span class="net">${usd(t.value)}</span><span class="fee">مجمل ${usd(t.gross)}</span></div></div>`;}).join('')}</div>`:emptyState('search','لا نتائج بهذه الفلاتر','وسّعي نطاق التاريخ أو غيّري البحث.');
       $('#oFinCount').textContent=list.length+' تبرّع';
       const sorted=list.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).slice(0,300);
-      $('#oFinTable').innerHTML=sorted.map(d=>`<tr style="cursor:pointer" onclick="OrphansSchoolProject.openCard('${esc(d.box)}')"><td>${esc(d.date)}</td><td>${esc(d.name)}</td><td class="num">#${esc(d.box)}</td><td class="num">${usd(d.amount)}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')||`<tr><td colspan="5" style="text-align:center">لا نتائج</td></tr>`;
+      $('#oFinTable').innerHTML=sorted.map(d=>{
+        const g=donationGross_(d),n=donationNet_(d),f=donationFee_(d);
+        return `<tr style="cursor:pointer" onclick="OrphansSchoolProject.openCard('${esc(d.box)}')"><td>${esc(d.date)}</td><td>${esc(d.name)}</td><td class="num">#${esc(d.box)}</td><td class="num">${usd(g)}</td><td class="num" style="color:var(--ok);font-weight:800">${usd(n)}</td><td class="num" style="color:var(--warn)">${usd(f)}</td><td>${esc(d.donorName||'—')}</td></tr>`;
+      }).join('')||`<tr><td colspan="7" style="text-align:center">لا نتائج</td></tr>`;
     };
     $('#oFinApply').onclick=renderFinance_;
     $('#oFinClear').onclick=()=>{$('#oFinFrom').value='';$('#oFinTo').value='';renderFinance_();};
@@ -1632,9 +1710,11 @@ const OrphansSchoolProject = (function(){
     const F=[];
     if(mode==='historical'){
       if(finLabel)finLabel.textContent='المتابعة المالية بالفترة المحددة';
-      F.push(kpi('gold','wallet',Math.round(a.periodDonationsTotal||0),'إجمالي التبرعات بالفترة ($)'));
-      F.push(kpi('ok','calc',a.periodDonationsCount||0,'عدد التبرعات بالفترة'));
-      F.push(kpi('brand','users',a.periodDonorsCount||0,'عدد المتبرعين بالفترة'));
+      F.push(kpi('gold','wallet',Math.round(a.periodDonationsTotal||0),'تبرعات مجملة ($)'));
+      F.push(kpi('ok','heart',Math.round(a.periodDonationsNet||0),'بعد الخصم الإداري ($)'));
+      F.push(kpi('warn','calc',Math.round(a.periodDonationsFee||0),'الخصم الإداري ($)'));
+      F.push(kpi('brand','trend',a.periodDonationsCount||0,'عدد التبرعات'));
+      F.push(kpi('brand','users',a.periodDonorsCount||0,'عدد المتبرعين'));
     }else{
       if(finLabel)finLabel.textContent='المتابعة المالية (من المنصة)';
       if(aK('totalPaid'))F.push(kpi('gold','wallet',Math.round(a.totalPaid),'إجمالي المدفوع ($)','من المنصة'));
@@ -1758,7 +1838,10 @@ const OrphansSchoolProject = (function(){
   function donationsHtml(box){
     const list=studentDonations(box);
     if(!list.length)return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات</h4><div class="df full"><div class="vv" style="color:var(--text3)">لا توجد تبرعات مفصّلة مسجّلة بعد لهذا الطالب.</div></div></div>`;
-    return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات (${list.length})</h4><div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>المبلغ</th><th>المتبرع</th></tr></thead><tbody>${list.map(d=>`<tr><td>${esc(d.date)}</td><td class="num">${usd(d.amount)}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
+    const gTot=list.reduce((a,d)=>a+donationGross_(d),0),nTot=list.reduce((a,d)=>a+donationNet_(d),0);
+    return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات (${list.length})</h4>
+      <div class="dg" style="margin-bottom:12px">${df('المجمل',usd(gTot))}${df('الصافي بعد الخصم',usd(nTot))}${df('الخصم الإداري',usd(Math.max(0,gTot-nTot)))}</div>
+      <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>مجمل</th><th>صافي</th><th>خصم</th><th>المتبرع</th></tr></thead><tbody>${list.map(d=>`<tr><td>${esc(d.date)}</td><td class="num">${usd(donationGross_(d))}</td><td class="num">${usd(donationNet_(d))}</td><td class="num">${usd(donationFee_(d))}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
   function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
   function refillReportFilterOptions_(){
