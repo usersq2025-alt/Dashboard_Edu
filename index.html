@@ -439,9 +439,13 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
     <p>سجّل الدخول للوصول إلى لوحات المشاريع</p>
     <input type="text" id="loginUser" placeholder="اسم المستخدم" autocomplete="username" />
     <input type="password" id="loginPass" placeholder="كلمة المرور" autocomplete="current-password" />
+    <label class="login-remember" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:.84rem;font-weight:700;color:var(--text2);cursor:pointer;text-align:start">
+      <input type="checkbox" id="loginRemember" checked style="width:16px;height:16px;cursor:pointer">
+      تذكّر هذا الجهاز (لن يُطلب منك الدخول مجدداً)
+    </label>
     <div class="login-err" id="loginErr">اسم المستخدم أو كلمة المرور غير صحيحة</div>
     <button class="btn pri" type="submit" style="width:100%;justify-content:center">دخول</button>
-    <div class="login-hint">بيانات الدخول تُدار من قائمة "🔒 الإعدادات الأمنية" داخل جداول جوجل شيت</div>
+    <div class="login-hint">بعد أول دخول ناجح تُحفظ الجلسة محلياً على هذا الجهاز حتى تضغطي «تسجيل الخروج»</div>
   </form>
 </div>
 
@@ -2406,17 +2410,35 @@ const Platform = (function(){
      كل مشروع له رمز جلسة منفصل صادر من Apps Script الخاص به بعد تسجيل دخول
      ناجح. لا كلمة سر تُخزَّن هنا أبداً — فقط رموز مؤقتة صالحة لمدة محدودة. */
   let AUTH_TOKENS={};
+  const CREDS_KEY='cd_device_creds_v1';
   function saveTokens(){ try{localStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(_){ try{sessionStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(__){} } }
   function loadTokens(){
     try{ AUTH_TOKENS=JSON.parse(localStorage.getItem('cd_tokens')||sessionStorage.getItem('cd_tokens')||'{}'); }
     catch(_){ AUTH_TOKENS={}; }
+  }
+  function saveDeviceCreds_(user,pass){
+    try{
+      const payload=btoa(unescape(encodeURIComponent(JSON.stringify({u:user,p:pass,t:Date.now()}))));
+      localStorage.setItem(CREDS_KEY,payload);
+    }catch(_){}
+  }
+  function loadDeviceCreds_(){
+    try{
+      const raw=localStorage.getItem(CREDS_KEY);
+      if(!raw) return null;
+      const o=JSON.parse(decodeURIComponent(escape(atob(raw))));
+      if(o&&o.u&&o.p) return o;
+    }catch(_){}
+    return null;
+  }
+  function clearDeviceCreds_(){
+    try{ localStorage.removeItem(CREDS_KEY); }catch(_){}
   }
   function apiUrlWith(proj,params){
     const qs=Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
     return proj.apiUrl+(proj.apiUrl.includes('?')?'&':'?')+qs;
   }
   async function apiLogin(proj,user,pass){
-    // مشروع بلا رابط منشور فعلياً (بيانات مدمجة/معطّلة مؤقتاً) → لا يُعطّل تسجيل الدخول لباقي المشاريع
     if(!proj.apiUrl||proj.apiUrl.startsWith('PUT_'))return{ok:true,token:'embedded'};
     try{
       const r=await fetch(apiUrlWith(proj,{action:'login',user,pass}));
@@ -2430,36 +2452,70 @@ const Platform = (function(){
       return await r.json();
     }catch(e){ return {ok:false,error:'تعذّر الاتصال'}; }
   }
+  async function loginAllProjects_(user,pass){
+    const results=await Promise.all(PROJECTS.map(pr=>apiLogin(pr,user,pass)));
+    if(results.every(r=>r&&r.ok)){
+      PROJECTS.forEach((pr,i)=>{ AUTH_TOKENS[pr.id]=results[i].token; });
+      saveTokens();
+      return {ok:true};
+    }
+    const failMsg=results.find(r=>r&&r.error)?.error;
+    return {ok:false,error:failMsg||'اسم المستخدم أو كلمة المرور غير صحيحة'};
+  }
+  async function silentReloginIfPossible_(){
+    const creds=loadDeviceCreds_();
+    if(!creds) return false;
+    try{
+      const r=await loginAllProjects_(creds.u,creds.p);
+      return !!r.ok;
+    }catch(_){ return false; }
+  }
 
   /* ============ تسجيل الدخول ============ */
-  function checkAuth(){
-    // وضع المشاركة يتجاوز تسجيل دخول المدير
+  async function checkAuth(){
     const hash=location.hash;
     if(hash.startsWith('#share=')){ return initShareView(hash.slice(7)); }
     loadTokens();
-    const allHaveTokens=PROJECTS.every(p=>AUTH_TOKENS[p.id]);
-    if(allHaveTokens){ showApp(); return; }
+    const creds=loadDeviceCreds_();
+    // جهاز معروف: جدّد الرموز بصمت بدون شاشة دخول
+    if(creds){
+      const loaderP=$('#loader p');
+      if(loaderP) loaderP.textContent='جاري فتح الجلسة المحفوظة…';
+      const ok=await silentReloginIfPossible_();
+      if(ok){ showApp(); return; }
+      // بيانات محفوظة لكن فشل الدخول (كلمة تغيّرت) → شاشة دخول مع اسم المستخدم جاهزاً
+      showLogin({user:creds.u,rememberFailed:true});
+      return;
+    }
+    if(PROJECTS.every(p=>AUTH_TOKENS[p.id])){ showApp(); return; }
     showLogin();
   }
-  function showLogin(){
+  function showLogin(opts){
+    opts=opts||{};
     $('#loginScreen').style.display='flex';
     $('#appShell').style.display='none';
     $('#shareGate').style.display='none';
     $('#loginErr').style.display='none';
+    if(opts.user) $('#loginUser').value=opts.user;
+    if(opts.rememberFailed){
+      $('#loginErr').textContent='انتهت صلاحية الجلسة المحفوظة أو تغيّرت كلمة المرور — أدخلي كلمة المرور مجدداً';
+      $('#loginErr').style.display='block';
+    }
+    const rem=$('#loginRemember'); if(rem) rem.checked=true;
     $('#loginForm').onsubmit=async e=>{
       e.preventDefault();
       const u=$('#loginUser').value.trim(),p=$('#loginPass').value;
+      const remember=!$('#loginRemember')||$('#loginRemember').checked;
       const btn=$('#loginForm button[type=submit]');
       btn.disabled=true; $('#loginErr').style.display='none';
       try{
-        const results=await Promise.all(PROJECTS.map(pr=>apiLogin(pr,u,p)));
-        if(results.every(r=>r&&r.ok)){
-          PROJECTS.forEach((pr,i)=>{ AUTH_TOKENS[pr.id]=results[i].token; });
-          saveTokens();
+        const r=await loginAllProjects_(u,p);
+        if(r.ok){
+          if(remember) saveDeviceCreds_(u,p);
+          else clearDeviceCreds_();
           showApp();
         }else{
-          const failMsg=results.find(r=>r&&r.error)?.error;
-          $('#loginErr').textContent=failMsg||'اسم المستخدم أو كلمة المرور غير صحيحة';
+          $('#loginErr').textContent=r.error||'اسم المستخدم أو كلمة المرور غير صحيحة';
           $('#loginErr').style.display='block'; $('#loginPass').value='';
         }
       }catch(err){
@@ -2467,11 +2523,12 @@ const Platform = (function(){
         $('#loginErr').style.display='block';
       }finally{ btn.disabled=false; }
     };
-    setTimeout(()=>$('#loginUser')?.focus(),100);
+    setTimeout(()=>(opts.user?$('#loginPass'):$('#loginUser'))?.focus(),100);
   }
   function logout(){
     stopAutoRefresh();
     AUTH_TOKENS={};
+    clearDeviceCreds_();
     try{localStorage.removeItem('cd_tokens');sessionStorage.removeItem('cd_tokens');}catch(_){}
     PROJECTS.forEach(p=>{ delete _cache[p.id]; diskCacheClear_(p.id); });
     location.hash=''; location.reload();
@@ -2597,8 +2654,19 @@ const Platform = (function(){
       const j=await res.json();
       if(j.ok===false){
         if(j.code===401 || /Unauthorized/i.test(j.error||'')){
+          const rescued=await silentReloginIfPossible_();
+          if(rescued){
+            const token2=AUTH_TOKENS[proj.id];
+            if(token2){
+              const res2=await fetch(apiUrlWith(proj,{token:token2}),{method:'GET'});
+              if(res2.ok){
+                const j2=await res2.json();
+                if(j2&&j2.ok!==false) return {data:j2,live:true,cachedAt:Date.now()};
+              }
+            }
+          }
           delete AUTH_TOKENS[proj.id]; saveTokens();
-          if(!isShareView) showLogin();
+          if(!isShareView && !loadDeviceCreds_()) showLogin();
         }
         throw new Error(j.error||'API error');
       }
