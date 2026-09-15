@@ -323,14 +323,13 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .app-shell{display:flex;min-height:100vh;position:relative}
 .sb-overlay{position:fixed;inset:0;background:rgba(10,16,14,.45);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:.25s;z-index:950}
 .sb-overlay.show{opacity:1;visibility:visible}
-.sidebar{width:268px;flex-shrink:0;background:var(--surface);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:960;transition:margin .28s cubic-bezier(.4,0,.2,1),transform .28s cubic-bezier(.4,0,.2,1)}
-/* مطويّ على الشاشات الكبيرة: ينزلق خارجاً ويُحرّر مساحته */
-.app-shell.collapsed .sidebar{margin-inline-start:-268px}
-.sb-collapse-btn{margin-inline-start:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text2);cursor:pointer;font-size:.85rem;display:grid;place-items:center;flex-shrink:0}
-.sb-collapse-btn:hover{border-color:var(--brand);color:var(--brand)}
-.sb-rail{display:none;position:fixed;top:72px;inset-inline-start:0;z-index:970;width:40px;padding:8px 0;border-radius:0 12px 12px 0;border:1px solid var(--line);border-inline-start:0;background:var(--surface);box-shadow:var(--sh);cursor:pointer;align-items:center;justify-content:center;writing-mode:vertical-rl;text-orientation:mixed;font-size:.72rem;font-weight:800;color:var(--text2);gap:6px;letter-spacing:.04em}
-[dir=rtl] .sb-rail,[dir="rtl"] .sb-rail{border-radius:12px 0 0 12px;border-inline-start:1px solid var(--line);border-inline-end:0;inset-inline-start:auto;inset-inline-end:0}
-.sb-rail:hover{color:var(--brand);border-color:var(--brand)}
+.sidebar{width:268px;flex:0 0 268px;background:var(--surface);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;z-index:960;transition:flex-basis .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1),max-width .28s cubic-bezier(.4,0,.2,1),opacity .2s ease,border-color .2s ease}
+/* مطويّ على الشاشات الكبيرة: يختفي الشريط ويُحرَّر العرض */
+.app-shell.collapsed .sidebar{flex-basis:0!important;width:0!important;max-width:0!important;min-width:0!important;opacity:0;border-color:transparent;pointer-events:none;overflow:hidden}
+.sb-collapse-btn{margin-inline-start:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text2);cursor:pointer;font-size:1rem;line-height:1;display:grid;place-items:center;flex-shrink:0;z-index:2}
+.sb-collapse-btn:hover{border-color:var(--brand);color:var(--brand);background:var(--brandsoft)}
+.sb-rail{display:none;position:fixed;top:50%;inset-inline-end:0;transform:translateY(-50%);z-index:1100;width:38px;min-height:132px;padding:14px 0;border-radius:12px 0 0 12px;border:1px solid var(--line);border-inline-end:0;background:var(--surface);box-shadow:var(--shl);cursor:pointer;align-items:center;justify-content:center;writing-mode:vertical-rl;text-orientation:mixed;font-size:.78rem;font-weight:800;color:var(--brand);letter-spacing:.06em}
+.sb-rail:hover{background:var(--brandsoft)}
 .app-shell.collapsed .sb-rail{display:flex}
 .sb-brand{display:flex;align-items:center;gap:11px;padding:16px 16px;border-bottom:1px solid var(--line);position:relative}
 .sb-brand .mk{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--brand);color:#fff;font-size:1.2rem;flex-shrink:0}
@@ -433,8 +432,8 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 
 /* ---- responsive: off-canvas sidebar on small screens ---- */
 @media(max-width:980px){
-  .sidebar{position:fixed;top:0;right:0;left:auto;height:100dvh;margin-inline-start:0;transform:translateX(100%);box-shadow:var(--shl);width:min(280px,82vw)}
-  .app-shell.collapsed .sidebar{margin-inline-start:0}
+  .sidebar{position:fixed;top:0;right:0;left:auto;height:100dvh;flex-basis:auto;width:min(280px,82vw);max-width:min(280px,82vw);transform:translateX(100%);box-shadow:var(--shl);opacity:1;pointer-events:auto;border-inline-end:1px solid var(--line)}
+  .app-shell.collapsed .sidebar{flex-basis:auto!important;width:min(280px,82vw)!important;max-width:min(280px,82vw)!important;min-width:0;opacity:1;pointer-events:auto;transform:translateX(100%)}
   .sidebar.open{transform:translateX(0)}
   .sb-close{display:grid}
   .sb-collapse-btn,.sb-rail{display:none!important}
@@ -442,6 +441,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 @media(min-width:981px){
   .sb-overlay{display:none}
   .sb-close{display:none!important}
+  .menu-btn{display:none!important}
 }
 
 </style>
@@ -476,7 +476,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
   <div class="sb-overlay" id="sbOverlay"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand"><div class="mk">♥</div><div class="t">منصّة المشاريع<small>إدارة إنسانية</small></div>
-      <button class="sb-collapse-btn" id="sbCollapseBtn" type="button" title="طي الشريط" aria-label="طي الشريط">›</button>
+      <button class="sb-collapse-btn" id="sbCollapseBtn" type="button" title="طي الشريط" aria-label="طي الشريط" onclick="Platform.collapseSidebar()">‹</button>
       <button class="sb-close" id="sbClose" title="إغلاق">✕</button></div>
     <div class="sb-share-label" id="sbShareLabel" style="display:none"></div>
     <div class="sb-label" id="sbProjLabel">المشاريع</div>
@@ -486,7 +486,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
       <button class="sb-tool danger" id="logoutBtn"></button>
     </div>
   </aside>
-  <button type="button" class="sb-rail" id="sbRail" title="فتح شريط المشاريع" aria-label="فتح شريط المشاريع">‹ المشاريع</button>
+  <button type="button" class="sb-rail" id="sbRail" title="فتح شريط المشاريع" aria-label="فتح شريط المشاريع" onclick="Platform.expandSidebar()">› المشاريع</button>
 
   <div class="main-col">
     <div class="topbar2">
@@ -2894,8 +2894,12 @@ const Platform = (function(){
         await refreshProjectBackground_(currentProject,{silent:false});
       }; }
     const mb=$('#menuBtn'); if(mb){ mb.innerHTML=ic('menu'); mb.onclick=toggleSidebar; }
-    const scb=$('#sbCollapseBtn'); if(scb){ scb.onclick=()=>{ if(!isMobile()) setSidebarCollapsed_(true); else closeSidebar(); }; }
-    const rail=$('#sbRail'); if(rail){ rail.onclick=()=>setSidebarCollapsed_(false); }
+    const scb=$('#sbCollapseBtn');
+    if(scb){
+      scb.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); if(isMobile()) closeSidebar(); else setSidebarCollapsed_(true); };
+    }
+    const rail=$('#sbRail');
+    if(rail){ rail.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); setSidebarCollapsed_(false); }; }
     try{
       if(!isMobile() && localStorage.getItem('cd_sidebar_collapsed')==='1') setSidebarCollapsed_(true,true);
     }catch(_){}
@@ -2909,6 +2913,8 @@ const Platform = (function(){
     shell.classList.toggle('collapsed',!!on);
     if(!skipStore){ try{ localStorage.setItem('cd_sidebar_collapsed',on?'1':'0'); }catch(_){} }
   }
+  function collapseSidebar(){ if(isMobile()) closeSidebar(); else setSidebarCollapsed_(true); }
+  function expandSidebar(){ if(isMobile()){ $('#sidebar').classList.add('open'); $('#sbOverlay').classList.add('show'); } else setSidebarCollapsed_(false); }
   function toggleSidebar(){
     if(isMobile()){ const open=$('#sidebar').classList.toggle('open'); $('#sbOverlay').classList.toggle('show',open); }
     else { setSidebarCollapsed_(!$('#appShell').classList.contains('collapsed')); }
@@ -3029,7 +3035,8 @@ const Platform = (function(){
   }
 
   return {init,openProject,goPage,openDrawer,closeDrawer,downloadCSV,toggleTheme,logout,
-          createShareLink,copyShareUrl,closeShareModal,openShareModal,fetchExtra};
+          createShareLink,copyShareUrl,closeShareModal,openShareModal,fetchExtra,
+          collapseSidebar,expandSidebar,toggleSidebar};
 })();
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',Platform.init);
