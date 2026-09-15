@@ -326,6 +326,12 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .sidebar{width:268px;flex-shrink:0;background:var(--surface);border-inline-end:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;z-index:960;transition:margin .28s cubic-bezier(.4,0,.2,1),transform .28s cubic-bezier(.4,0,.2,1)}
 /* مطويّ على الشاشات الكبيرة: ينزلق خارجاً ويُحرّر مساحته */
 .app-shell.collapsed .sidebar{margin-inline-start:-268px}
+.sb-collapse-btn{margin-inline-start:auto;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text2);cursor:pointer;font-size:.85rem;display:grid;place-items:center;flex-shrink:0}
+.sb-collapse-btn:hover{border-color:var(--brand);color:var(--brand)}
+.sb-rail{display:none;position:fixed;top:72px;inset-inline-start:0;z-index:970;width:40px;padding:8px 0;border-radius:0 12px 12px 0;border:1px solid var(--line);border-inline-start:0;background:var(--surface);box-shadow:var(--sh);cursor:pointer;align-items:center;justify-content:center;writing-mode:vertical-rl;text-orientation:mixed;font-size:.72rem;font-weight:800;color:var(--text2);gap:6px;letter-spacing:.04em}
+[dir=rtl] .sb-rail,[dir="rtl"] .sb-rail{border-radius:12px 0 0 12px;border-inline-start:1px solid var(--line);border-inline-end:0;inset-inline-start:auto;inset-inline-end:0}
+.sb-rail:hover{color:var(--brand);border-color:var(--brand)}
+.app-shell.collapsed .sb-rail{display:flex}
 .sb-brand{display:flex;align-items:center;gap:11px;padding:16px 16px;border-bottom:1px solid var(--line);position:relative}
 .sb-brand .mk{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--brand);color:#fff;font-size:1.2rem;flex-shrink:0}
 .sb-brand .t{font-weight:800;font-size:1rem;line-height:1.15}.sb-brand .t small{display:block;font-weight:500;font-size:.68rem;color:var(--text3);margin-top:2px}
@@ -339,17 +345,26 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .sb-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;font-size:1.05rem;overflow:hidden}
 .sb-thumb{width:100%;height:100%;object-fit:cover;display:block}
 .top-proj{order:2;display:flex;align-items:center;gap:10px;min-width:0;max-width:min(280px,42vw)}
-.top-thumb{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--line);display:none;background:var(--bg2)}
-.top-thumb.show{display:block}
-.school-hero{display:grid;grid-template-columns:minmax(140px,220px) 1fr;gap:14px;align-items:stretch;margin-bottom:16px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--surface);box-shadow:var(--sh)}
-.school-hero img{width:100%;height:100%;min-height:120px;max-height:160px;object-fit:cover;object-position:center 30%;display:block}
-.school-hero-body{padding:14px 16px 14px 8px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}
-.school-hero-body h1{margin:0;font-size:clamp(1.15rem,2.5vw,1.45rem);font-weight:800;line-height:1.25}
+.top-thumb{display:none!important}
+.school-hero{position:relative;margin-bottom:16px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh);min-height:168px;background:#1a2420}
+.school-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
+.school-hero-body{position:relative;z-index:1;padding:18px 18px 16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:168px;background:linear-gradient(180deg,rgba(12,18,16,.15) 0%,rgba(12,18,16,.72) 100%);color:#fff}
+.school-hero-body .eb{color:#f0d48a}
+.school-hero-body h1{margin:0;font-size:clamp(1.15rem,2.5vw,1.45rem);font-weight:800;line-height:1.25;color:#fff}
+.school-hero-body .meta{color:rgba(255,255,255,.82)}
 .school-hero-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.school-hero-actions .btn{backdrop-filter:blur(6px);background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.28);color:#fff}
+.school-hero-actions .btn.gold{background:var(--gold);border-color:transparent;color:#1a2420}
+.fold-block{border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-top:4px;overflow:hidden}
+.fold-block>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;font-weight:800;font-size:.88rem;color:var(--text);user-select:none}
+.fold-block>summary::-webkit-details-marker{display:none}
+.fold-block>summary::before{content:'▸';display:inline-block;transition:transform .18s;color:var(--brand);font-size:.75rem}
+.fold-block[open]>summary::before{transform:rotate(90deg)}
+.fold-block .fold-body{padding:0 10px 12px;border-top:1px solid var(--line)}
+.fold-block .fold-hint{font-size:.78rem;font-weight:600;color:var(--text3)}
 @media(max-width:720px){
-  .school-hero{grid-template-columns:1fr}
-  .school-hero img{max-height:180px;min-height:140px}
-  .school-hero-body{padding:12px 14px 14px}
+  .school-hero,.school-hero-body{min-height:150px}
+  .school-hero-body{padding:14px}
 }
 .sb-tx{min-width:0}.sb-tx b{font-size:.9rem;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}.sb-tx small{font-size:.72rem;color:var(--text3)}
 .sb-tools{margin-top:auto;border-top:1px solid var(--line);padding:10px}
@@ -420,9 +435,11 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
   .app-shell.collapsed .sidebar{margin-inline-start:0}
   .sidebar.open{transform:translateX(0)}
   .sb-close{display:grid}
+  .sb-collapse-btn,.sb-rail{display:none!important}
 }
 @media(min-width:981px){
   .sb-overlay{display:none}
+  .sb-close{display:none!important}
 }
 
 </style>
@@ -457,6 +474,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
   <div class="sb-overlay" id="sbOverlay"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sb-brand"><div class="mk">♥</div><div class="t">منصّة المشاريع<small>إدارة إنسانية</small></div>
+      <button class="sb-collapse-btn" id="sbCollapseBtn" type="button" title="طي الشريط" aria-label="طي الشريط">›</button>
       <button class="sb-close" id="sbClose" title="إغلاق">✕</button></div>
     <div class="sb-share-label" id="sbShareLabel" style="display:none"></div>
     <div class="sb-label" id="sbProjLabel">المشاريع</div>
@@ -466,6 +484,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
       <button class="sb-tool danger" id="logoutBtn"></button>
     </div>
   </aside>
+  <button type="button" class="sb-rail" id="sbRail" title="فتح شريط المشاريع" aria-label="فتح شريط المشاريع">‹ المشاريع</button>
 
   <div class="main-col">
     <div class="topbar2">
@@ -1640,9 +1659,9 @@ const OrphansSchoolProject = (function(){
       <div class="kpis" id="oOvKpis"></div>
       <div class="slabel" id="oOvFinLabel">المتابعة المالية (من المنصة)</div>
       <div class="kpis" id="oOvFinKpis"></div>
-      <div id="oOvPeriodFinance"></div>
       <div class="slabel">التصنيفات والتحليل البصري <span class="hint">صف · صحة · نازح/مقيم · كفالة</span></div>
       <div class="grid g2" id="oOvCharts"></div>
+      <div id="oOvPeriodFinance"></div>
     </section>`;
   }
   function pageFinance(){return `<section class="page" data-page="finance">
@@ -1912,9 +1931,26 @@ const OrphansSchoolProject = (function(){
         });
         const mk=Object.keys(byM).sort();
         const activeN=S.filter(isActiveStudent).length;
-        periodBox.innerHTML=`<div class="slabel">تفصيل مالي${ovFrom||ovTo?' للفترة':''} · طلاب ضمن الفلتر: ${S.length} (نشط الآن: ${activeN})</div>
-          <div class="tw"><table class="t"><thead><tr><th>الشهر</th><th>عدد التبرعات</th><th>مجمل ($)</th><th>بعد الحسم ($)</th><th>حسم 22% ($)</th></tr></thead>
-          <tbody>${mk.length?mk.map(k=>{const b=byM[k];return `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td class="num">${usd(b.gross)}</td><td class="num" style="color:var(--ok);font-weight:800">${usd(b.net)}</td><td class="num" style="color:var(--warn)">${usd(b.fee)}</td></tr>`;}).join(''):`<tr><td colspan="5" style="text-align:center">لا تبرعات ضمن هذا النطاق</td></tr>`}</tbody></table></div>
+        const PREVIEW=5;
+        const preview=mk.slice(0,PREVIEW);
+        const rest=mk.slice(PREVIEW);
+        const rowHtml=k=>{const b=byM[k];return `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td class="num">${usd(b.gross)}</td><td class="num" style="color:var(--ok);font-weight:800">${usd(b.net)}</td><td class="num" style="color:var(--warn)">${usd(b.fee)}</td></tr>`;};
+        const thead=`<thead><tr><th>الشهر</th><th>عدد التبرعات</th><th>مجمل ($)</th><th>بعد الحسم ($)</th><th>حسم 22% ($)</th></tr></thead>`;
+        const emptyRow=`<tr><td colspan="5" style="text-align:center">لا تبرعات ضمن هذا النطاق</td></tr>`;
+        let body='';
+        if(!mk.length){
+          body=`<div class="tw"><table class="t">${thead}<tbody>${emptyRow}</tbody></table></div>`;
+        }else if(rest.length){
+          body=`<div class="tw"><table class="t">${thead}<tbody>${preview.map(rowHtml).join('')}</tbody></table></div>
+            <details class="fold-block" style="margin-top:10px">
+              <summary>عرض بقية الأشهر (${rest.length}) <span class="fold-hint">مطويّ — اضغط للفتح</span></summary>
+              <div class="fold-body"><div class="tw"><table class="t">${thead}<tbody>${rest.map(rowHtml).join('')}</tbody></table></div></div>
+            </details>`;
+        }else{
+          body=`<div class="tw"><table class="t">${thead}<tbody>${preview.map(rowHtml).join('')}</tbody></table></div>`;
+        }
+        periodBox.innerHTML=`<div class="slabel">تفصيل مالي${ovFrom||ovTo?' للفترة':''} · طلاب ضمن الفلتر: ${S.length} (نشط الآن: ${activeN})${mk.length>PREVIEW?` · يظهر أول ${PREVIEW}`:''}</div>
+          ${body}
           <p style="font-size:.8rem;color:var(--text3);margin:8px 2px 0">التفاصيل كاملة لكل دفعة وطالب في تبويب «المتابعة المالية» (ينعكس عليه نفس الفلتر).</p>`;
       }else periodBox.innerHTML='';
     }
@@ -2574,10 +2610,8 @@ const Platform = (function(){
   function setTopProjectChrome_(proj,suffix){
     const nameEl=$('#topProjectName'), thumbEl=$('#topProjectThumb');
     if(nameEl) nameEl.textContent=(proj.name||'—')+(suffix||'');
-    if(thumbEl){
-      if(proj.thumb){ thumbEl.src=proj.thumb; thumbEl.alt=proj.name||''; thumbEl.classList.add('show'); }
-      else { thumbEl.removeAttribute('src'); thumbEl.classList.remove('show'); }
-    }
+    /* صورة الهيدر المصغّرة أُزيلت — كانت تظهر مربعاً فارغاً بجانب الاسم؛ الصورة في شريط النظرة العامة والشريط الجانبي */
+    if(thumbEl){ thumbEl.removeAttribute('src'); thumbEl.classList.remove('show'); thumbEl.alt=''; }
   }
 
   /* ---- تخزين مؤقت دائم (IndexedDB + localStorage احتياطي) + Stale-While-Revalidate ---- */
@@ -2839,14 +2873,24 @@ const Platform = (function(){
         await refreshProjectBackground_(currentProject,{silent:false});
       }; }
     const mb=$('#menuBtn'); if(mb){ mb.innerHTML=ic('menu'); mb.onclick=toggleSidebar; }
+    const scb=$('#sbCollapseBtn'); if(scb){ scb.onclick=()=>{ if(!isMobile()) setSidebarCollapsed_(true); else closeSidebar(); }; }
+    const rail=$('#sbRail'); if(rail){ rail.onclick=()=>setSidebarCollapsed_(false); }
+    try{
+      if(!isMobile() && localStorage.getItem('cd_sidebar_collapsed')==='1') setSidebarCollapsed_(true,true);
+    }catch(_){}
     $('#sbClose').onclick=closeSidebar;
     $('#sbOverlay').onclick=closeSidebar;
     document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDrawer();closeShareModal();closeSidebar();}});
   }
   function isMobile(){return window.innerWidth<=980;}
+  function setSidebarCollapsed_(on,skipStore){
+    const shell=$('#appShell'); if(!shell) return;
+    shell.classList.toggle('collapsed',!!on);
+    if(!skipStore){ try{ localStorage.setItem('cd_sidebar_collapsed',on?'1':'0'); }catch(_){} }
+  }
   function toggleSidebar(){
     if(isMobile()){ const open=$('#sidebar').classList.toggle('open'); $('#sbOverlay').classList.toggle('show',open); }
-    else { $('#appShell').classList.toggle('collapsed'); }
+    else { setSidebarCollapsed_(!$('#appShell').classList.contains('collapsed')); }
   }
   function closeSidebar(){ $('#sidebar').classList.remove('open'); $('#sbOverlay').classList.remove('show'); }
 
