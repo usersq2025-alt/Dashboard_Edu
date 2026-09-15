@@ -342,10 +342,12 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .sb-proj:hover{background:var(--bg2)}
 .sb-proj.active{background:var(--brandsoft)}
 .sb-proj.active .sb-tx b{color:var(--brand)}
-.sb-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;font-size:1.05rem;overflow:hidden}
-.sb-thumb{width:100%;height:100%;object-fit:cover;display:block}
-.top-proj{order:2;display:flex;align-items:center;gap:10px;min-width:0;max-width:min(280px,42vw)}
-.top-thumb{display:none!important}
+.sb-ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-size:1.05rem;overflow:hidden;border:1px solid var(--line)}
+.sb-ic.has-thumb{border-color:transparent;background:transparent!important;padding:0}
+.sb-thumb{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
+.top-proj{order:2;display:flex;align-items:center;gap:10px;min-width:0;max-width:min(320px,48vw)}
+.top-thumb{width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:center 28%;flex-shrink:0;border:2px solid color-mix(in srgb,var(--brand) 35%,var(--line));display:none;background:var(--bg2)}
+.top-thumb.show{display:block}
 .school-hero{position:relative;margin-bottom:16px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--sh);min-height:168px;background:#1a2420}
 .school-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
 .school-hero-body{position:relative;z-index:1;padding:18px 18px 16px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:168px;background:linear-gradient(180deg,rgba(12,18,16,.15) 0%,rgba(12,18,16,.72) 100%);color:#fff}
@@ -2598,11 +2600,20 @@ const Platform = (function(){
   }
   function stopAutoRefresh(){ if(_autoRefreshTimer){clearInterval(_autoRefreshTimer);_autoRefreshTimer=null;} }
 
+  function projectThumbUrl_(p){
+    const t=p&&p.thumb; if(!t) return '';
+    try{ return new URL(t, location.href).href; }catch(_){ return t; }
+  }
   function buildSidebar(){
-    $('#sbProjects').innerHTML=PROJECTS.map(p=>`
-      <button class="sb-proj" data-proj="${p.id}" onclick="Platform.openProject('${p.id}')">
-        <span class="sb-ic" style="background:${p.accent}22;color:${p.accent}">${p.thumb?`<img class="sb-thumb" src="${esc(p.thumb)}" alt="">`:ic(p.icon)}</span>
-        <span class="sb-tx"><b>${esc(p.name)}</b><small>${esc(p.sub)}</small></span></button>`).join('');
+    $('#sbProjects').innerHTML=PROJECTS.map(p=>{
+      const thumb=projectThumbUrl_(p);
+      const avatar=thumb
+        ? `<img class="sb-thumb" src="${esc(thumb)}" alt="${esc(p.name||'')}" loading="lazy" decoding="async" onerror="this.style.display='none';this.parentElement&&this.parentElement.classList.remove('has-thumb')">`
+        : ic(p.icon);
+      return `<button class="sb-proj" data-proj="${p.id}" onclick="Platform.openProject('${p.id}')">
+        <span class="sb-ic${thumb?' has-thumb':''}" style="background:${p.accent}22;color:${p.accent}">${avatar}</span>
+        <span class="sb-tx"><b>${esc(p.name)}</b><small>${esc(p.sub)}</small></span></button>`;
+    }).join('');
     $('#sbTools').style.display='block';
     $('#shareBtn').innerHTML=ic('share')+' مشاركة لوحة';
     $('#logoutBtn').innerHTML=ic('logout')+' تسجيل الخروج';
@@ -2610,8 +2621,18 @@ const Platform = (function(){
   function setTopProjectChrome_(proj,suffix){
     const nameEl=$('#topProjectName'), thumbEl=$('#topProjectThumb');
     if(nameEl) nameEl.textContent=(proj.name||'—')+(suffix||'');
-    /* صورة الهيدر المصغّرة أُزيلت — كانت تظهر مربعاً فارغاً بجانب الاسم؛ الصورة في شريط النظرة العامة والشريط الجانبي */
-    if(thumbEl){ thumbEl.removeAttribute('src'); thumbEl.classList.remove('show'); thumbEl.alt=''; }
+    if(thumbEl){
+      const thumb=projectThumbUrl_(proj);
+      if(thumb){
+        thumbEl.onerror=()=>{ thumbEl.classList.remove('show'); };
+        thumbEl.onload=()=>{ thumbEl.classList.add('show'); };
+        thumbEl.alt=proj.name||'';
+        thumbEl.src=thumb;
+        thumbEl.classList.add('show');
+      }else{
+        thumbEl.removeAttribute('src'); thumbEl.classList.remove('show'); thumbEl.alt='';
+      }
+    }
   }
 
   /* ---- تخزين مؤقت دائم (IndexedDB + localStorage احتياطي) + Stale-While-Revalidate ---- */
