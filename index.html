@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ar" dir="rtl" data-theme="light">
 <head>
 <meta charset="UTF-8" />
@@ -1369,9 +1369,17 @@ const OrphansSchoolProject = (function(){
   let oPage=1;
   let geoMap=null;
   let pagesBuilt_={};
-  /** الحسم الإداري والتشغيلي: 22% من المجمل → الصافي 78% */
-  const ADMIN_OPS_FEE_RATE=0.22;
+  /** الحسم = منقولات «نسبة إدارية» + «التشغيلي التعليم» من سجل الدفعات */
   const FEE_LABEL='الحسم الإداري والتشغيلي';
+  function donationGross_(d){return n0(d&&d.amount);}
+  function donationNet_(d){
+    if(d&&d.netAmount!=null&&d.netAmount!=='') return n0(d.netAmount);
+    return donationGross_(d);
+  }
+  function donationFee_(d){
+    if(d&&d.adminFee!=null&&d.adminFee!=='') return n0(d.adminFee);
+    return Math.max(0,donationGross_(d)-donationNet_(d));
+  }
   let lastOvAllowK=()=>true, lastOvAllowC=()=>true;
 
   const isMale=s=>String(s.gender||'').includes('ذكر');
@@ -1437,7 +1445,7 @@ const OrphansSchoolProject = (function(){
   function setData(j){
     DB.donations=(j.donations||[]).map(d=>{
       const gross=parseMoney(d.amount);
-      const net=Math.round(gross*(1-ADMIN_OPS_FEE_RATE)*100)/100;
+      const net=d.netAmount!=null&&d.netAmount!==''?parseMoney(d.netAmount):gross;
       return {...d,amount:gross,netAmount:net,adminFee:Math.max(0,gross-net)};
     });
     /* فهرسة مرة واحدة — تجنّب فلترة كل التبرعات لكل طالب عند التحميل (كان السبب الرئيسي للبطء) */
@@ -1467,12 +1475,7 @@ const OrphansSchoolProject = (function(){
       return row;
     });
   }
-  function donationGross_(d){return n0(d&&d.amount);}
-  function donationNet_(d){
-    const g=donationGross_(d);
-    return Math.round(g*(1-ADMIN_OPS_FEE_RATE)*100)/100;
-  }
-  function donationFee_(d){return Math.max(0,donationGross_(d)-donationNet_(d));}
+  /* donationGross_/Net_/Fee_ معرّفة أعلى مع FEE_LABEL */
 
   function aggFromList_(S){
     const males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females,sponsored=S.filter(isSponsored).length;
@@ -1668,7 +1671,7 @@ const OrphansSchoolProject = (function(){
   }
   function pageFinance(){return `<section class="page" data-page="finance">
     <div class="phead"><div><div class="eb">المالية</div><h1>متابعة التبرعات الواردة</h1></div>
-      <div class="meta">مجمل الوارد · بعد الحسم الإداري والتشغيلي (22%)</div></div>
+      <div class="meta">مجمل الوارد · بعد حسم المنقولات (إداري+تشغيلي)</div></div>
     <div id="oFinScope"></div>
     <div class="toolbar">
       <label>من <input type="date" id="oFinFrom"></label>
@@ -1679,7 +1682,7 @@ const OrphansSchoolProject = (function(){
       <select id="oFinCity"><option value="">كل المدن</option></select>
     </div>
     <div class="kpis" id="oFinKpis"></div>
-    <div class="slabel">اتجاه التبرعات شهرياً <span class="hint">عمود ذهبي = مجمل · أخضر = صافي بعد حسم 22%</span></div>
+    <div class="slabel">اتجاه التبرعات شهرياً <span class="hint">عمود ذهبي = مجمل · أخضر = صافي بعد الحسم</span></div>
     <div class="panel"><div id="oFinTrend"></div><div id="oFinTrendLeg"></div><div id="oFinMonthCards"></div></div>
     <div class="slabel">أكثر الطلاب استفادة (صافي بعد الحسم) <span class="tag">اضغط الاسم لفتح البطاقة</span></div>
     <div class="panel"><div id="oFinTop"></div></div>
@@ -1724,7 +1727,7 @@ const OrphansSchoolProject = (function(){
       $('#oFinKpis').innerHTML=
         kpi('brand','wallet',Math.round(total),'التبرعات المجملة ($)')+
         kpi('ok','heart',Math.round(totalNet),'بعد الحسم الإداري والتشغيلي ($)')+
-        kpi('warn','calc',Math.round(totalFee),FEE_LABEL+' 22% ($)')+
+        kpi('warn','calc',Math.round(totalFee),FEE_LABEL+' ($)')+
         kpi('gold','trend',list.length,'عدد التبرعات')+
         kpi('gold','users',donors,'عدد المتبرعين')+
         kpi('warn','child',students,'طلاب مستفيدون');
@@ -1743,7 +1746,7 @@ const OrphansSchoolProject = (function(){
           const grossVals=mk.map(k=>Math.round(byM[k]));
           const netVals=mk.map(k=>Math.round(byMNet[k]||0));
           tr.innerHTML=svgTwinBars(labs,grossVals,netVals,{colorA:cssv('--gold'),colorB:cssv('--ok')});
-          if(leg)leg.innerHTML=legend([{label:'مجمل الوارد',color:cssv('--gold')},{label:'صافي بعد الحسم 22%',color:cssv('--ok')}]);
+          if(leg)leg.innerHTML=legend([{label:'مجمل الوارد',color:cssv('--gold')},{label:'صافي بعد الحسم',color:cssv('--ok')}]);
           const cards=$('#oFinMonthCards');
           if(cards){
             cards.innerHTML=`<div class="fin-month-grid">${mk.map((k,i)=>{
@@ -1899,7 +1902,7 @@ const OrphansSchoolProject = (function(){
       if(finLabel)finLabel.textContent='المتابعة المالية بالفترة المحددة';
       F.push(kpi('gold','wallet',Math.round(a.periodDonationsTotal||0),'تبرعات مجملة ($)'));
       F.push(kpi('ok','heart',Math.round(a.periodDonationsNet||0),'بعد الحسم الإداري والتشغيلي ($)'));
-      F.push(kpi('warn','calc',Math.round(a.periodDonationsFee||0),FEE_LABEL+' 22% ($)'));
+      F.push(kpi('warn','calc',Math.round(a.periodDonationsFee||0),FEE_LABEL+' ($)'));
       F.push(kpi('brand','trend',a.periodDonationsCount||0,'عدد التبرعات'));
       F.push(kpi('brand','users',a.periodDonorsCount||0,'عدد المتبرعين'));
     }else{
@@ -1937,7 +1940,7 @@ const OrphansSchoolProject = (function(){
         const preview=mk.slice(0,PREVIEW);
         const rest=mk.slice(PREVIEW);
         const rowHtml=k=>{const b=byM[k];return `<tr><td>${esc(k)}</td><td class="num">${b.n}</td><td class="num">${usd(b.gross)}</td><td class="num" style="color:var(--ok);font-weight:800">${usd(b.net)}</td><td class="num" style="color:var(--warn)">${usd(b.fee)}</td></tr>`;};
-        const thead=`<thead><tr><th>الشهر</th><th>عدد التبرعات</th><th>مجمل ($)</th><th>بعد الحسم ($)</th><th>حسم 22% ($)</th></tr></thead>`;
+        const thead=`<thead><tr><th>الشهر</th><th>عدد التبرعات</th><th>مجمل ($)</th><th>بعد الحسم ($)</th><th>الحسم ($)</th></tr></thead>`;
         const emptyRow=`<tr><td colspan="5" style="text-align:center">لا تبرعات ضمن هذا النطاق</td></tr>`;
         let body='';
         if(!mk.length){
@@ -2103,8 +2106,8 @@ const OrphansSchoolProject = (function(){
     if(!list.length)return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات</h4><div class="df full"><div class="vv" style="color:var(--text3)">لا توجد تبرعات مفصّلة مسجّلة بعد لهذا الطالب.</div></div></div>`;
     const gTot=list.reduce((a,d)=>a+donationGross_(d),0),nTot=list.reduce((a,d)=>a+donationNet_(d),0);
     return `<div class="ds"><h4>${ic('wallet')} سجل التبرعات (${list.length})</h4>
-      <div class="dg" style="margin-bottom:12px">${df('المجمل',usd(gTot))}${df('الصافي بعد الحسم 22%',usd(nTot))}${df(FEE_LABEL,usd(Math.max(0,gTot-nTot)))}</div>
-      <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>مجمل</th><th>صافي</th><th>حسم 22%</th><th>المتبرع</th></tr></thead><tbody>${list.map(d=>`<tr><td>${esc(d.date)}</td><td class="num">${usd(donationGross_(d))}</td><td class="num">${usd(donationNet_(d))}</td><td class="num">${usd(donationFee_(d))}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
+      <div class="dg" style="margin-bottom:12px">${df('المجمل',usd(gTot))}${df('الصافي بعد الحسم',usd(nTot))}${df(FEE_LABEL,usd(Math.max(0,gTot-nTot)))}</div>
+      <div class="tw"><table class="t"><thead><tr><th>التاريخ</th><th>مجمل</th><th>صافي</th><th>الحسم</th><th>المتبرع</th></tr></thead><tbody>${list.map(d=>`<tr><td>${esc(d.date)}</td><td class="num">${usd(donationGross_(d))}</td><td class="num">${usd(donationNet_(d))}</td><td class="num">${usd(donationFee_(d))}</td><td>${esc(d.donorName||'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
   function df(k,v,full){return `<div class="df ${full?'full':''}"><div class="k">${k}</div><div class="vv">${(v===''||v==null)?'—':esc(v)}</div></div>`;}
   function refillReportFilterOptions_(){
@@ -2188,7 +2191,7 @@ const OrphansSchoolProject = (function(){
     const healthC=topCounts2(list,s=>s.healthStatus,100);
     const dispC=topCounts2(list,s=>s.displaced,100);
     return `<div class="kpis">${kpi('brand','child',list.length,'إجمالي الطلاب (وفق الفلاتر)')}${kpi('male','mars',males,'ذكور')}${kpi('female','venus',females,'إناث')}${kpi('ok','heart',sponsored,'مكفولون')}${kpi('bad','clock',list.length-sponsored,'غير مكفولين')}${kpi('ok','check',active,'نشط')}${kpi('warn','clock',list.length-active,'غير نشط')}${kpi('gold','percent',avgProgress,'متوسط الإنجاز %')}${kpi('gold','wallet',Math.round(paid),'إجمالي المدفوع ($)')}${kpi('warn','calc',Math.round(remaining),'المتبقي ($)')}${kpi('brand','trend',donationsCount,'عدد التبرعات (منصة)')}</div>
-      <div class="slabel">التفاصيل المالية ضمن الفلاتر/الفترة <span class="hint">حسم إداري وتشغيلي 22%</span></div>
+      <div class="slabel">التفاصيل المالية ضمن الفلاتر/الفترة <span class="hint">حسم إداري وتشغيلي</span></div>
       <div class="kpis">${kpi('brand','wallet',Math.round(gTot),'تبرعات مجملة ($)')}${kpi('ok','heart',Math.round(nTot),'بعد الحسم ($)')}${kpi('warn','calc',Math.round(fTot),FEE_LABEL+' ($)')}${kpi('gold','trend',donations.length,'عدد التبرعات بالفترة')}</div>
       <div class="slabel">ملخّص حسب المدينة</div>
       <div class="tw"><table class="t"><thead><tr><th>المدينة</th><th>عدد الطلاب</th></tr></thead><tbody>${cityC.map(u=>`<tr><td>${esc(u.label)}</td><td class="num">${u.value}</td></tr>`).join('')||'<tr><td colspan="2" style="text-align:center">لا بيانات</td></tr>'}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${list.length}</td></tr></tfoot></table></div>

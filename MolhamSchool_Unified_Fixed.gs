@@ -3,10 +3,10 @@
    ------------------------------------------------------------
    إصلاحات مهمة:
    - مطابقة اسم المدرسة من school.name (كائن المنصة)
-   - سحب دفعات «وارد» فقط
+   - سحب دفعات «وارد» + ربط حسم الصادر بأوصاف الإداري/التشغيلي
+   - الصافي = المجمل − (نسبة إدارية + التشغيلي التعليم) بدل نسبة ثابتة 22%
    - منع تكرار WS- + تنظيف مكررات مرة واحدة
-   - الإحصائيات الشهرية: مجمل / صافي بعد الخصم / قيمة الخصم
-   - ربط داشبورد HTML كما كان
+   - الإحصائيات الشهرية من صافي السجل الفعلي
    الصق هذا الملف مكان الكود القديم كاملًا في Apps Script للملف الجديد.
    ===================================================================== */
 
@@ -74,8 +74,9 @@ const MASTER_TO_DASHBOARD_KEY = {
 };
 
 const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-/** الحسم الإداري والتشغيلي = 22% من المبلغ المجمل → الصافي = 78% */
-const ADMIN_OPS_FEE_RATE = 0.22;
+/** أوصاف المنقولات الصادرة التي تُحسب حسماً إدارياً/تشغيلياً (بدل نسبة ثابتة) */
+const FEE_DESC_OPS = 'التشغيلي';
+const FEE_DESC_ADMIN = 'نسبه اداريه'; // بعد تطبيع العربية (ة→ه، إ→ا)
 const HEADER_SEARCH_ROWS = 10;
 const DISCOVERY_BATCH_SIZE = 30;
 const DISCOVERY_MAX_PAGES = 300;
@@ -86,8 +87,11 @@ const PAYMENTS_TIME_BUDGET_MS = 5 * 60 * 1000;
 function onOpen() {
   // مهم: لا تستدعِ ScriptApp.getProjectTriggers() هنا بدون try —
   // فشلها في simple trigger يمنع ظهور كل القوائم المخصّصة.
+  // ولا تستدعِ getUi() من محرر Apps Script أحياناً — يظهر:
+  // Cannot call SpreadsheetApp.getUi() from this context
   try {
-    const ui = SpreadsheetApp.getUi();
+    const ui = safeUi_();
+    if (!ui) return;
     let dailyLabel = '⏰ تفعيل التحديث اليومي التلقائي';
     try {
       const dailyOn = ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'dailySyncRun');
@@ -103,8 +107,10 @@ function onOpen() {
       .addSeparator()
       .addItem('📊 إعادة بناء الإحصائيات الشهرية (مجمل/صافي/خصم)', 'rebuildMonthlyStatsFromLedger')
       .addItem('📒 إعادة بناء السجل المالي الشهري (مجمل/صافي)', 'rebuildMonthlyFinanceSheet')
-      .addItem('💵 إعادة حساب الصافي بحسم 22% على كل السجل', 'recalcLedgerNetsAt22')
+      .addItem('💵 إعادة حساب الصافي من أوصاف المنقولات (إداري+تشغيلي)', 'recalcLedgerNetsFromFeeDescriptions')
       .addItem('🧹 تنظيف سجل التبرعات من المكررات (مرة واحدة)', 'dedupeDonationsLedgerOnce')
+      .addSeparator()
+      .addItem('🔬 تجربة: هل الـ API يجلب المنقولات الصادرة؟', 'debugProbeOutgoingPayments')
       .addToUi();
 
     ui.createMenu('🔗 مزامنة الملف الأم')
@@ -128,6 +134,125 @@ function setApiKey() {
   if (!key) return;
   PropertiesService.getScriptProperties().setProperty(PROP_KEY, key);
   ui.alert('✅ تم حفظ المفتاح.');
+}
+
+/**
+ * تجربة: سحب كل دفعات صندوق واحد (وارد + صادر) وعرض كل حقول الـ JSON
+ * في شيت "_تجربة_دفعات_API" لمعرفة إن وُجد وصف «نقل دفعة إلى نسبة إدارية / التشغيلي».
+ */
+function debugProbeOutgoingPayments() {
+  const ui = safeUi_();
+  const apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEY);
+  if (!apiKey) {
+    if (ui) ui.alert('⚠️ عيّني مفتاح API أولاً من القائمة.');
+    return;
+  }
+
+  let box = '5115';
+  if (ui) {
+    const res = ui.prompt(
+      'تجربة المنقولات الصادرة',
+      'أدخلي رقم الصندوق (من شاشتك مثلاً 5115 أو 3096):',
+      ui.ButtonSet.OK_CANCEL
+    );
+    if (res.getSelectedButton() !== ui.Button.OK) return;
+    box = String(res.getResponseText() || '').trim() || '5115';
+  }
+
+  const all = [];
+  let page = 1;
+  let httpErr = '';
+  while (page <= 40) {
+    const resp = UrlFetchApp.fetch(
+      WORKSHOP_API_BASE + '/students/' + encodeURIComponent(box) + '/payments?page=' + page,
+      { method: 'get', headers: { 'X-API-Key': apiKey }, muteHttpExceptions: true }
+    );
+    const code = resp.getResponseCode();
+    const text = resp.getContentText();
+    if (code !== 200) {
+      httpErr = 'HTTP ' + code + '\n' + text.slice(0, 800);
+      break;
+    }
+    let json;
+    try { json = JSON.parse(text); } catch (e) {
+      httpErr = 'JSON غير صالح:\n' + text.slice(0, 800);
+      break;
+    }
+    const data = json.data || [];
+    if (!data.length) break;
+    data.forEach(p => all.push(p));
+    const last = Number(json.last_page || (json.meta && json.meta.last_page) || 0);
+    if (last && page >= last) break;
+    if (!last && data.length < 10) break;
+    page++;
+  }
+
+  if (httpErr) {
+    if (ui) ui.alert('❌ فشل الطلب\n' + httpErr);
+    return;
+  }
+  if (!all.length) {
+    if (ui) ui.alert('لا دفعات لهذا الصندوق #' + box);
+    return;
+  }
+
+  const keySet = {};
+  all.forEach(p => Object.keys(flattenPaymentForProbe_(p)).forEach(k => { keySet[k] = true; }));
+  const keys = Object.keys(keySet).sort();
+
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName('_تجربة_دفعات_API');
+  if (!sh) sh = ss.insertSheet('_تجربة_دفعات_API');
+  sh.clear();
+
+  sh.getRange(1, 1).setValue(
+    'صندوق #' + box + ' — كل الدفعات من API كما هي (وارد + صادر) · ' + formatNow_()
+  ).setFontWeight('bold');
+  sh.getRange(2, 1).setValue(
+    'ابحثي عن type=صادر وعمود وصف/note/description/is_internal_payment — هل يظهر «نسبة إدارية» أو «التشغيلي»؟'
+  );
+
+  sh.getRange(3, 1, 1, keys.length).setValues([keys]).setFontWeight('bold').setBackground('#e8eef5');
+  const rows = all.map(p => {
+    const f = flattenPaymentForProbe_(p);
+    return keys.map(k => (f[k] === null || f[k] === undefined) ? '' : f[k]);
+  });
+  sh.getRange(4, 1, rows.length, keys.length).setValues(rows);
+  sh.setFrozenRows(3);
+
+  const types = {};
+  all.forEach(p => {
+    const t = String(p.type || '?');
+    types[t] = (types[t] || 0) + 1;
+  });
+  const outgoing = all.filter(p => /صادر|منقول/i.test(String(p.type || '')));
+  const incoming = all.filter(p => String(p.type || '') === 'وارد');
+
+  let msg = '✅ التجربة اكتملت\n\nصندوق #' + box +
+    '\nإجمالي الدفعات: ' + all.length +
+    '\nوارد: ' + incoming.length +
+    '\nصادر/منقول: ' + outgoing.length + '\n\nحسب النوع:\n';
+  Object.keys(types).forEach(t => { msg += '• ' + t + ': ' + types[t] + '\n'; });
+  msg += '\nحقول الـ JSON:\n' + keys.filter(k => k !== '_raw_json').join(', ');
+  msg += '\n\nراجعي شيت «_تجربة_دفعات_API» — إن وُجد نص الإدارية/التشغيلي نربطه بالحسم بدقة.';
+  Logger.log(msg);
+  if (ui) ui.alert(msg);
+}
+
+function flattenPaymentForProbe_(p) {
+  const o = {};
+  Object.keys(p || {}).forEach(k => {
+    const v = p[k];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      Object.keys(v).forEach(sk => { o[k + '.' + sk] = v[sk]; });
+    } else if (Array.isArray(v)) {
+      o[k] = JSON.stringify(v);
+    } else {
+      o[k] = v;
+    }
+  });
+  o._raw_json = JSON.stringify(p);
+  return o;
 }
 
 function toggleDailySync() {
@@ -157,12 +282,67 @@ function normalizeArabic_(str) {
     .replace(/[\u064B-\u0652]/g, '');
 }
 function num_(v) { if (v === '' || v == null) return 0; const n = Number(v); return isNaN(n) ? 0 : n; }
-function netAfterAdminOps_(gross) {
-  const g = num_(gross);
-  return Math.round(g * (1 - ADMIN_OPS_FEE_RATE) * 100) / 100;
+
+/** هل الدفعة منقول صادر إلى التشغيلي أو النسبة الإدارية؟ */
+function isAdminOpsFeeTransfer_(p) {
+  if (!p) return false;
+  if (!/صادر/.test(String(p.type || ''))) return false;
+  const d = normalizeArabic_(p.description || p.note || p.memo || '');
+  if (!d) return false;
+  return d.indexOf(FEE_DESC_OPS) !== -1 || d.indexOf(FEE_DESC_ADMIN) !== -1;
 }
-function feeAdminOps_(gross) {
-  return Math.max(0, num_(gross) - netAfterAdminOps_(gross));
+
+function feeTransferAmount_(p) {
+  const a = num_(p && p.amount);
+  if (a > 0) return a;
+  return num_(p && p.net_amount);
+}
+
+function paymentTimeMs_(p) {
+  const s = String((p && p.date) || '').replace('T', ' ').trim();
+  if (!s) return 0;
+  const t = Date.parse(s.replace(/-/g, '/'));
+  return isNaN(t) ? 0 : t;
+}
+
+/**
+ * يربط كل وارد بمجموع منقولات الإداري+التشغيلي القريبة زمنياً (حتى دفعتين).
+ * الصافي الحقيقي = المجمل − هذا المجموع.
+ */
+function allocateFeesToIncoming_(payments) {
+  const list = payments || [];
+  const incoming = list.filter(p => String(p.type || '') === 'وارد');
+  const fees = list.filter(isAdminOpsFeeTransfer_).map(p => ({
+    p: p,
+    used: false,
+    amt: feeTransferAmount_(p),
+    t: paymentTimeMs_(p)
+  }));
+  const map = {}; // payment id -> fee sum
+
+  incoming.forEach(inc => {
+    const t0 = paymentTimeMs_(inc);
+    const candidates = fees
+      .filter(f => !f.used && f.amt > 0)
+      .map(f => ({ f: f, dist: Math.abs((f.t || 0) - (t0 || 0)) }))
+      .filter(x => !t0 || !x.f.t || x.dist <= 5 * 60 * 1000) // ضمن 5 دقائق
+      .sort((a, b) => a.dist - b.dist);
+
+    let fee = 0, taken = 0;
+    for (let i = 0; i < candidates.length && taken < 2; i++) {
+      candidates[i].f.used = true;
+      fee += candidates[i].f.amt;
+      taken++;
+    }
+    // إن لم يُطابق زمنياً: لا نفترض 22% — نترك الحسم 0 (أو fee_amount من المنصة إن وُجد)
+    if (fee <= 0 && num_(inc.fee_amount) > 0) fee = num_(inc.fee_amount);
+    map[String(inc.id)] = Math.round(fee * 100) / 100;
+  });
+  return map;
+}
+
+function netAfterFee_(gross, fee) {
+  return Math.round((num_(gross) - Math.max(0, num_(fee))) * 100) / 100;
 }
 function asText_(v) { return v == null ? '' : String(v).trim(); }
 function formatNow_() {
@@ -424,17 +604,25 @@ function syncPaymentsBatch_() {
     let processed = 0, rateLimited = false;
 
     function absorbPayments_(box, name, list) {
+      const feeMap = allocateFeesToIncoming_(list || []);
       (list || []).forEach(p => {
-        if (p.type !== 'وارد') return; // مهم: لا نُدخل «صادر»
+        if (String(p.type || '') !== 'وارد') return;
         const idKey = 'WS-' + p.id;
         if (existingIds[idKey]) return;
         existingIds[idKey] = true;
         const gross = num_(p.amount);
-        // الحسم الإداري والتشغيلي 22% — لا نعتمد على net_amount من المنصة
+        const fee = feeMap[String(p.id)] || 0;
         newRows.push([
-          box, name, idKey, apiDateOnly_(p.date), gross, netAfterAdminOps_(gross),
+          box, name, idKey, apiDateOnly_(p.date), gross, netAfterFee_(gross, fee),
           (p.donor && p.donor.id) || '', (p.donor && p.donor.name) || '', (p.donor && p.donor.email) || ''
         ]);
+      });
+    }
+
+    /** تجميع صفحات الصندوق ثم الامتصاص مرة واحدة لربط الصادر بالوارد */
+    function flushBoxPayments_(bag) {
+      Object.keys(bag).forEach(box => {
+        absorbPayments_(box, bag[box].name, bag[box].list);
       });
     }
 
@@ -455,6 +643,7 @@ function syncPaymentsBatch_() {
       }));
       let responses = UrlFetchApp.fetchAll(requests);
 
+      const bag = {};
       const needNext = [];
       for (let i = 0; i < wave.length; i++) {
         const code = responses[i].getResponseCode();
@@ -462,7 +651,9 @@ function syncPaymentsBatch_() {
         if (code !== 200) continue;
         let json;
         try { json = JSON.parse(responses[i].getContentText()); } catch (e) { continue; }
-        absorbPayments_(wave[i].box, wave[i].name, json.data || []);
+        const b = wave[i].box;
+        if (!bag[b]) bag[b] = { name: wave[i].name, list: [] };
+        bag[b].list = bag[b].list.concat(json.data || []);
         if (json.next_page_url && wave[i].page < 5) { wave[i].page++; needNext.push(wave[i]); }
       }
       if (rateLimited) { cursor -= wave.length; break; }
@@ -480,11 +671,14 @@ function syncPaymentsBatch_() {
           if (code !== 200) continue;
           let json;
           try { json = JSON.parse(responses[j].getContentText()); } catch (e) { continue; }
-          absorbPayments_(chunk[j].box, chunk[j].name, json.data || []);
+          const b = chunk[j].box;
+          if (!bag[b]) bag[b] = { name: chunk[j].name, list: [] };
+          bag[b].list = bag[b].list.concat(json.data || []);
           if (json.next_page_url && chunk[j].page < 5) { chunk[j].page++; needNext.push(chunk[j]); }
         }
         if (rateLimited) break;
       }
+      flushBoxPayments_(bag);
       processed += wave.length;
     }
 
@@ -544,9 +738,14 @@ function dedupeDonationsLedgerOnce() {
   rebuildMonthlyStatsFromLedger_(true);
 }
 
-/* ===================== إعادة حساب الصافي بحسم 22% ===================== */
-function recalcLedgerNetsAt22() {
+/* ===================== إعادة حساب الصافي من أوصاف المنقولات ===================== */
+function recalcLedgerNetsFromFeeDescriptions() {
   const ui = safeUi_();
+  const apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEY);
+  if (!apiKey) {
+    if (ui) ui.alert('⚠️ عيّني مفتاح API أولاً.');
+    return;
+  }
   const found = ensureLedgerSheet_();
   const sh = found.sheet, lc = found.cols;
   const start = found.headerRow + 1;
@@ -554,17 +753,62 @@ function recalcLedgerNetsAt22() {
   if (last < start) { if (ui) ui.alert('سجل التبرعات فارغ.'); return; }
 
   const n = last - start + 1;
-  const amounts = sh.getRange(start, lc.AMOUNT, n, 1).getValues();
-  const nets = amounts.map(r => [netAfterAdminOps_(r[0])]);
+  const width = Math.max(sh.getLastColumn(), 9);
+  const vals = sh.getRange(start, 1, n, width).getValues();
+  const boxes = {};
+  vals.forEach(r => {
+    const box = normalize_(r[lc.BOX - 1]);
+    if (box) boxes[box] = true;
+  });
+  const boxList = Object.keys(boxes);
+  const feeByPaymentId = {}; // WS-id -> fee
+  let httpErr = 0;
+
+  boxList.forEach((box, idx) => {
+    if (idx && idx % 15 === 0) Utilities.sleep(200);
+    const all = [];
+    let page = 1;
+    while (page <= 10) {
+      const resp = UrlFetchApp.fetch(
+        WORKSHOP_API_BASE + '/students/' + encodeURIComponent(box) + '/payments?page=' + page,
+        { method: 'get', headers: { 'X-API-Key': apiKey }, muteHttpExceptions: true }
+      );
+      if (resp.getResponseCode() !== 200) { httpErr++; break; }
+      let json;
+      try { json = JSON.parse(resp.getContentText()); } catch (e) { httpErr++; break; }
+      const data = json.data || [];
+      if (!data.length) break;
+      data.forEach(p => all.push(p));
+      if (!json.next_page_url || page >= (json.last_page || 10)) break;
+      page++;
+    }
+    const map = allocateFeesToIncoming_(all);
+    Object.keys(map).forEach(id => { feeByPaymentId['WS-' + id] = map[id]; });
+  });
+
+  const nets = vals.map(r => {
+    const pid = String(r[lc.PAYMENT_ID - 1] || '').trim();
+    const gross = num_(r[lc.AMOUNT - 1]);
+    const fee = feeByPaymentId.hasOwnProperty(pid) ? feeByPaymentId[pid] : Math.max(0, gross - num_(r[lc.NET_AMOUNT - 1]));
+    // إن وُجدت مطابقة من API نحدّث؛ وإلا نبقي الصافي الحالي
+    if (feeByPaymentId.hasOwnProperty(pid)) return [netAfterFee_(gross, fee)];
+    return [num_(r[lc.NET_AMOUNT - 1]) || gross];
+  });
   sh.getRange(start, lc.NET_AMOUNT, n, 1).setValues(nets);
   sh.getRange(start, lc.NET_AMOUNT, n, 1).setNumberFormat('$#,##0.00');
 
   rebuildMonthlyStatsFromLedger_(true);
   rebuildMonthlyFinanceSheet_(true);
-  const msg = 'أُعيد حساب الصافي بحسم إداري وتشغيلي 22% على ' + n + ' صف.';
+  const updated = Object.keys(feeByPaymentId).length;
+  const msg = 'أُعيد حساب الصافي من أوصاف المنقولات (إداري+تشغيلي).\nصناديق: ' + boxList.length +
+    '\nدفعات طُبّق عليها الحسم: ' + updated +
+    (httpErr ? '\nتحذيرات HTTP: ' + httpErr : '');
   Logger.log(msg);
   if (ui) ui.alert(msg);
 }
+
+/** توافق قديم — يحوّل للقائمة الجديدة */
+function recalcLedgerNetsAt22() { recalcLedgerNetsFromFeeDescriptions(); }
 
 /* ===================== تواريخ الكفالة ===================== */
 function updateSponsorDatesFromLedger_() {
@@ -749,8 +993,8 @@ function rebuildMonthlyStatsFromLedger_(quiet, yearOverride) {
         const mi = Number(day.slice(5, 7)) - 1;
         if (mi < 0 || mi > 11) return;
         const gross = num_(r[lc.AMOUNT - 1]);
-        const net = netAfterAdminOps_(gross);
-        const fee = feeAdminOps_(gross);
+        const net = lc.NET_AMOUNT ? num_(r[lc.NET_AMOUNT - 1]) : gross;
+        const fee = Math.max(0, gross - net);
         const box = normalize_(r[lc.BOX - 1]);
         const donor = String(r[lc.DONOR_ID - 1] || r[lc.DONOR_NAME - 1] || '').trim();
         byMonth[mi].gross += gross;
@@ -777,7 +1021,7 @@ function rebuildMonthlyStatsFromLedger_(quiet, yearOverride) {
     'نسبة التغطية %',
     'إجمالي التبرعات المجملة ($)',
     'بعد الحسم الإداري والتشغيلي ($)',
-    'الحسم الإداري والتشغيلي 22% ($)',
+    'الحسم الإداري والتشغيلي ($)',
     'عدد التبرعات',
     'عدد المتبرعين'
   ];
@@ -800,7 +1044,7 @@ function rebuildMonthlyStatsFromLedger_(quiet, yearOverride) {
   applyYearDropdown_(sh, yearList, year);
   sh.getRange(2, 2).setFontWeight('bold').setBackground('#fff3cd').setHorizontalAlignment('center');
   sh.getRange(2, 3, 1, 3).merge()
-    .setValue('غيّري السنة من القائمة ← تتحدّث الأرقام تلقائياً · حسم إداري وتشغيلي 22%')
+    .setValue('غيّري السنة من القائمة ← الحسم = منقولات «نسبة إدارية» + «التشغيلي التعليم»')
     .setFontColor('#5c6b7a').setFontSize(10);
 
   const headerRow = sh.getRange(3, 1, 1, headers.length);
@@ -836,11 +1080,12 @@ function rebuildMonthlyStatsFromLedger_(quiet, yearOverride) {
 
   // ملاحظة أسفل
   sh.getRange(18, 1, 1, headers.length).merge()
-    .setValue('الصافي = المجمل × 78%  ·  الحسم = المجمل × 22%  ·  المصدر: سجل التبرعات (وارد فقط)')
+    .setValue('الصافي = المجمل − (منقولات «نسبة إدارية» + «التشغيلي التعليم») · المصدر: سجل التبرعات')
     .setFontSize(9).setFontColor('#718096');
 
   sh.setFrozenRows(3);
-  sh.setFrozenColumns(1);
+  // لا تجمّد أعمدة إذا كان العنوان مدموجاً عبر العرض — يسبب خطأ «جزء من خلية مدمجة»
+  sh.setFrozenColumns(0);
   sh.setColumnWidth(1, 110);
   for (let c = 2; c <= 4; c++) sh.setColumnWidth(c, 120);
   for (let c = 5; c <= 7; c++) sh.setColumnWidth(c, 170);
@@ -849,7 +1094,7 @@ function rebuildMonthlyStatsFromLedger_(quiet, yearOverride) {
 
   const msg = 'الإحصائيات الشهرية ✅ (' + year + ')\nمجمل: $' + sumGross.toFixed(2) +
     '\nبعد الحسم: $' + sumNet.toFixed(2) +
-    '\nالحسم 22%: $' + sumFee.toFixed(2);
+    '\nالحسم (إداري+تشغيلي): $' + sumFee.toFixed(2);
   Logger.log(msg);
   if (ui) ui.alert(msg);
 }
@@ -876,7 +1121,7 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
   if (yearList.indexOf(year) === -1) yearList.push(year);
   yearList.sort();
 
-  // تجميع: box -> { name, months[12] gross }
+  // تجميع: box -> { name, monthsGross[12], monthsNet[12] }
   const byBox = {};
   if (ledgerLast > ledgerFound.headerRow) {
     ledgerSheet.getRange(ledgerFound.headerRow + 1, 1, ledgerLast - ledgerFound.headerRow, ledgerSheet.getLastColumn())
@@ -887,13 +1132,20 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
         if (mi < 0 || mi > 11) return;
         const box = normalize_(r[lc.BOX - 1]);
         if (!box) return;
-        if (!byBox[box]) byBox[box] = { name: normalize_(r[lc.NAME - 1]), months: Array(12).fill(0) };
+        if (!byBox[box]) byBox[box] = {
+          name: normalize_(r[lc.NAME - 1]),
+          monthsGross: Array(12).fill(0),
+          monthsNet: Array(12).fill(0)
+        };
         if (!byBox[box].name && normalize_(r[lc.NAME - 1])) byBox[box].name = normalize_(r[lc.NAME - 1]);
-        byBox[box].months[mi] += num_(r[lc.AMOUNT - 1]);
+        const gross = num_(r[lc.AMOUNT - 1]);
+        const net = lc.NET_AMOUNT ? num_(r[lc.NET_AMOUNT - 1]) : gross;
+        byBox[box].monthsGross[mi] += gross;
+        byBox[box].monthsNet[mi] += net;
       });
   }
 
-  // أضف طلاب بلا تبرعات هذه السنة (من الشيت الرئيسي) ليظهروا بصفر؟ — نكتفي بمن لهم تبرعات + من بيانات الطلاب إن أمكن
+  // أضف طلاب بلا تبرعات هذه السنة (من الشيت الرئيسي)
   const mainFound = findSheetByHeaders_(H);
   if (mainFound) {
     const start = mainFound.headerRow + 1;
@@ -904,14 +1156,14 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
         const box = normalize_(r[mainFound.cols.BOX - 1]);
         const name = normalize_(r[mainFound.cols.NAME - 1]);
         if (!box) return;
-        if (!byBox[box]) byBox[box] = { name: name, months: Array(12).fill(0) };
+        if (!byBox[box]) byBox[box] = { name: name, monthsGross: Array(12).fill(0), monthsNet: Array(12).fill(0) };
         else if (!byBox[box].name && name) byBox[box].name = name;
       });
     }
   }
 
   const headers = ['رقم الصندوق', 'الاسم'].concat(MONTHS_AR)
-    .concat(['إجمالي مجمل ($)', 'بعد الحسم 22% ($)', 'الحسم الإداري والتشغيلي ($)']);
+    .concat(['إجمالي مجمل ($)', 'بعد الحسم ($)', 'الحسم الإداري والتشغيلي ($)']);
 
   sh.setFrozenRows(0);
   sh.setFrozenColumns(0);
@@ -920,7 +1172,7 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
 
   const titleRange = sh.getRange(1, 1, 1, headers.length);
   titleRange.merge()
-    .setValue('مدرسة ملهم للأيتام — السجل المالي الشهري (مجمل لكل شهر + صافي بعد حسم 22%)')
+    .setValue('مدرسة ملهم للأيتام — السجل المالي الشهري (مجمل + صافي بعد حسم المنقولات)')
     .setFontWeight('bold').setFontSize(13).setFontColor('#ffffff')
     .setBackground('#1e3a5f').setHorizontalAlignment('center');
   sh.setRowHeight(1, 34);
@@ -929,7 +1181,7 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
   applyYearDropdown_(sh, yearList, year);
   sh.getRange(2, 2).setFontWeight('bold').setBackground('#fff3cd').setHorizontalAlignment('center');
   sh.getRange(2, 3, 1, 5).merge()
-    .setValue('الأشهر = المبلغ المجمل · الأعمدة الأخيرة = إجمالي مجمل / صافي 78% / حسم 22% · غيّري السنة للتحديث')
+    .setValue('الأشهر = المجمل · الأعمدة الأخيرة من صافي السجل (حسم إداري+تشغيلي حسب وصف الصادر)')
     .setFontColor('#5c6b7a').setFontSize(10);
 
   sh.getRange(3, 1, 1, headers.length).setValues([headers])
@@ -940,17 +1192,16 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
   const boxes = Object.keys(byBox).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
   const out = boxes.map(box => {
     const b = byBox[box];
-    const gross = b.months.reduce((s, v) => s + v, 0);
-    const net = netAfterAdminOps_(gross);
-    const fee = feeAdminOps_(gross);
-    return [box, b.name].concat(b.months.map(v => v || '')).concat([gross, net, fee]);
+    const gross = b.monthsGross.reduce((s, v) => s + v, 0);
+    const net = b.monthsNet.reduce((s, v) => s + v, 0);
+    const fee = Math.max(0, gross - net);
+    return [box, b.name].concat(b.monthsGross.map(v => v || '')).concat([gross, net, fee]);
   });
 
   if (out.length) {
     sh.getRange(4, 1, out.length, headers.length).setValues(out);
     sh.getRange(4, 3, out.length, 12).setNumberFormat('$#,##0.00');
     sh.getRange(4, 15, out.length, 3).setNumberFormat('$#,##0.00');
-    // تمييز أعمدة الصافي والحسم
     sh.getRange(3, 15, 1, 1).setBackground('#276749');
     sh.getRange(3, 16, 1, 1).setBackground('#c05621');
     sh.getRange(4, 15, out.length, 1).setBackground('#f0fff4');
@@ -958,16 +1209,16 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
   }
 
   const totalRow = 4 + out.length;
-  let tGross = 0;
-  out.forEach(r => { tGross += num_(r[14]); });
+  let tGross = 0, tNet = 0;
+  out.forEach(r => { tGross += num_(r[14]); tNet += num_(r[15]); });
   sh.getRange(totalRow, 1, 1, headers.length).setValues([[
     '', 'الإجمالي / ' + year, '', '', '', '', '', '', '', '', '', '', '', '',
-    tGross, netAfterAdminOps_(tGross), feeAdminOps_(tGross)
+    tGross, tNet, Math.max(0, tGross - tNet)
   ]]).setFontWeight('bold').setBackground('#edf2f7');
   sh.getRange(totalRow, 15, 1, 3).setNumberFormat('$#,##0.00');
 
   sh.setFrozenRows(3);
-  sh.setFrozenColumns(2);
+  sh.setFrozenColumns(0);
   sh.setColumnWidth(1, 100);
   sh.setColumnWidth(2, 180);
   for (let c = 3; c <= 14; c++) sh.setColumnWidth(c, 88);
@@ -977,7 +1228,7 @@ function rebuildMonthlyFinanceSheet_(quiet, yearOverride) {
 
   const msg = 'السجل المالي الشهري ✅ (' + year + ')\nطلاب: ' + out.length +
     '\nمجمل: $' + tGross.toFixed(2) +
-    '\nبعد الحسم: $' + netAfterAdminOps_(tGross).toFixed(2);
+    '\nبعد الحسم: $' + tNet.toFixed(2);
   Logger.log(msg);
   if (ui) ui.alert(msg);
 }
