@@ -262,6 +262,14 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .fin-month-card .fg{font-weight:800;font-size:.95rem}
 .fin-month-card .fn{font-weight:700;font-size:.84rem;color:var(--ok)}
 .fin-month-card .ff{font-size:.72rem;color:var(--warn);margin-top:2px}
+.src.cache{background:var(--oksoft);color:var(--ok);border-color:transparent}
+.src.refreshing{background:var(--brandsoft);color:var(--brand)}
+@media(max-width:1100px){
+  .seg{flex-wrap:wrap;max-width:100%}
+  .seg-btn{flex:1 1 auto;text-align:center;min-height:42px}
+  .topbar2 .pname{max-width:min(180px,28vw)}
+  .fin-month-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+}
 @media(max-width:980px){
   .toolbar{gap:8px}
   .toolbar input,.toolbar select,.toolbar .btn{flex:1 1 calc(50% - 8px);min-width:140px}
@@ -273,7 +281,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 }
 @media(max-width:600px){
   .topbar2 .pname{max-width:120px;font-size:.92rem}
-  .page-nav button{font-size:.84rem;padding:7px 10px}
+  .page-nav button{font-size:.84rem;padding:7px 10px;min-height:40px}
   .src{display:none}
   .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
   .kpi .v{font-size:1.5rem}
@@ -284,8 +292,10 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
   .phead h1{font-size:1.22rem}
   .phead .meta{width:100%;margin-inline-start:0;margin-top:4px}
   .toolbar{padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
-  .toolbar input,.toolbar select,.toolbar .btn{flex:1 1 100%;min-width:0}
+  .toolbar input,.toolbar select,.toolbar .btn{flex:1 1 100%;min-width:0;min-height:42px}
   .toolbar input[type=date]{flex:1 1 calc(50% - 6px)}
+  .seg{width:100%}
+  .seg-btn{flex:1 1 calc(50% - 4px);font-size:.8rem;padding:10px 8px}
   .cards{grid-template-columns:1fr;gap:12px}
   .dms{grid-template-columns:repeat(3,1fr)}
   .drawer{width:100vw}
@@ -295,6 +305,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
   .alertbar .btn{width:100%;justify-content:center}
   .slabel{flex-wrap:wrap;gap:6px}
   .slabel .hint,.slabel .tag,.slabel .cnt{margin-inline-start:0}
+  .grid.g2{grid-template-columns:1fr}
 }
 @media(max-width:420px){
   .kpis{grid-template-columns:1fr 1fr}
@@ -1566,6 +1577,26 @@ const OrphansSchoolProject = (function(){
     else if(id==='students'){ initFilters(); renderCards(); }
     else if(id==='reports') initReports();
   }
+  /** تحديث حي بدون إعادة ضبط الفلاتر أو شاشة تحميل */
+  function softRefresh(perm){
+    const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
+    const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
+    lastOvAllowK=allowKpi; lastOvAllowC=allowChart;
+    const active=$('#projectHost .page.active')?.dataset.page||'overview';
+    const allN=DB.students.length, actN=DB.students.filter(isActiveStudent).length;
+    const btnA=$('#oOvBtnActive'), btnAll=$('#oOvBtnAll');
+    if(btnA) btnA.innerHTML=`${ic('check')} الطلاب النشطون <small style="opacity:.75;font-weight:700">(${actN})</small>`;
+    if(btnAll) btnAll.innerHTML=`إجمالي الطلاب <small style="opacity:.75;font-weight:700">(${allN})</small>`;
+    if($('#oOvKpis')){
+      pagesBuilt_.overview=true;
+      buildOverview(allowKpi,allowChart);
+    }
+    ['finance','geo','students','reports'].forEach(id=>{ if(id!==active) delete pagesBuilt_[id]; });
+    if(active!=='overview'){
+      delete pagesBuilt_[active];
+      onPageShow(active);
+    }
+  }
 
   /* ---- pages markup ---- */
   function pageOverview(a,aK,aC){
@@ -2142,7 +2173,7 @@ const OrphansSchoolProject = (function(){
   function topCounts2(list,fn,limit){const m={};list.forEach(s=>{const k=fn(s)||'غير محدّد';m[k]=(m[k]||0)+1;});
     return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([label,value])=>({label,value}));}
 
-  return {setData,render,onPageShow,openCard,setPage:i=>{oPage=i;renderCards();},PAGES,ELEMENTS,agg};
+  return {setData,render,onPageShow,softRefresh,openCard,setPage:i=>{oPage=i;renderCards();},PAGES,ELEMENTS,agg};
 })();
 /* ✅ هذا المشروع مُفعَّل فعلياً بمصفوفة PROJECTS (id:'school'). إن ظهر "تعذّر الاتصال" بشارة المصدر،
    أعيدي نشر Apps Script الخاص بمدرسة ملهم للأيتام (Deploy → Manage deployments → Edit → Version: New version)
@@ -2378,8 +2409,11 @@ const Platform = (function(){
      كل مشروع له رمز جلسة منفصل صادر من Apps Script الخاص به بعد تسجيل دخول
      ناجح. لا كلمة سر تُخزَّن هنا أبداً — فقط رموز مؤقتة صالحة لمدة محدودة. */
   let AUTH_TOKENS={};
-  function saveTokens(){ try{sessionStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(_){}}
-  function loadTokens(){ try{AUTH_TOKENS=JSON.parse(sessionStorage.getItem('cd_tokens')||'{}');}catch(_){AUTH_TOKENS={};} }
+  function saveTokens(){ try{localStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(_){ try{sessionStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(__){} } }
+  function loadTokens(){
+    try{ AUTH_TOKENS=JSON.parse(localStorage.getItem('cd_tokens')||sessionStorage.getItem('cd_tokens')||'{}'); }
+    catch(_){ AUTH_TOKENS={}; }
+  }
   function apiUrlWith(proj,params){
     const qs=Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k])).join('&');
     return proj.apiUrl+(proj.apiUrl.includes('?')?'&':'?')+qs;
@@ -2438,7 +2472,13 @@ const Platform = (function(){
     };
     setTimeout(()=>$('#loginUser')?.focus(),100);
   }
-  function logout(){ stopAutoRefresh(); AUTH_TOKENS={}; try{sessionStorage.removeItem('cd_tokens');}catch(_){} location.hash=''; location.reload(); }
+  function logout(){
+    stopAutoRefresh();
+    AUTH_TOKENS={};
+    try{localStorage.removeItem('cd_tokens');sessionStorage.removeItem('cd_tokens');}catch(_){}
+    PROJECTS.forEach(p=>{ delete _cache[p.id]; diskCacheClear_(p.id); });
+    location.hash=''; location.reload();
+  }
 
   /* ============ تشغيل التطبيق (مدير) ============ */
   function showApp(){
@@ -2453,29 +2493,17 @@ const Platform = (function(){
   }
 
   /* ============ تحديث دوري تلقائي للبيانات الحيّة ============
-     كل 5 دقائق: يعيد جلب بيانات المشروع المفتوح حالياً من الـAPI (إن وُجد)
-     ويعيد رسم الصفحة النشطة فقط، دون إزعاج المستخدم (يتخطّى التحديث إن كان
-     الدرج مفتوحاً، أو كانت نافذة المتصفح غير ظاهرة حالياً). */
+     كل دقيقتين: تحديث خلفي (بدون شاشة تحميل) مع الإبقاء على التخزين المحلي.
+     يتخطّى التحديث إن كان الدرج مفتوحاً أو النافذة مخفية. */
   let _autoRefreshTimer=null;
-  const AUTO_REFRESH_MS=5*60*1000;
+  const AUTO_REFRESH_MS=2*60*1000;
   function startAutoRefresh(){
     stopAutoRefresh();
-    _autoRefreshTimer=setInterval(async()=>{
+    _autoRefreshTimer=setInterval(()=>{
       if(document.hidden) return;
       if($('#drawer')?.classList.contains('open')) return;
       if(!currentProject||!currentModule) return;
-      const activePage=$('#projectHost .page.active')?.dataset.page;
-      delete _cache[currentProject.id];
-      try{
-        const loaded=await loadProjectData(currentProject);
-        currentModule.setData(loaded.data);
-        setSrcBadge(loaded.live,loaded.failed);
-        const res=currentModule.render($('#projectHost'),sharePerm);
-        currentPages=res.pages;
-        buildPageNav(res.pages,res.alertCount);
-        if(activePage&&res.pages.some(p=>p.id===activePage)) goPage(activePage);
-        else if(res.pages.length) goPage(res.pages[0].id);
-      }catch(_){ /* تجاهل بصمت — سيُعاد المحاولة بالدورة القادمة */ }
+      refreshProjectBackground_(currentProject,{silent:true});
     },AUTO_REFRESH_MS);
   }
   function stopAutoRefresh(){ if(_autoRefreshTimer){clearInterval(_autoRefreshTimer);_autoRefreshTimer=null;} }
@@ -2491,38 +2519,150 @@ const Platform = (function(){
     $('#logoutBtn').innerHTML=ic('logout')+' تسجيل الخروج';
   }
 
-  /* جلب بيانات مشروع: حيّ من Apps Script إن توفّر الرابط، وإلا المدمج.
-     يحفظ النتيجة في كاش لتفادي إعادة الجلب عند التبديل. */
+  /* ---- تخزين مؤقت دائم (IndexedDB + localStorage احتياطي) + Stale-While-Revalidate ---- */
   const _cache={};
-  async function loadProjectData(proj){
-    if(_cache[proj.id]) return _cache[proj.id];
+  const _bgRefreshing={};
+  const DISK_SOFT_MS=90*1000;       // بعد 90 ثانية نحدّث بالخلفية
+  const DISK_MAX_MS=7*24*60*60*1000; // صلاحية أسبوع
+  const IDB_NAME='DashboardEduCache';
+  const IDB_STORE='projects';
+
+  function idbOpen_(){
+    return new Promise((resolve,reject)=>{
+      if(!window.indexedDB) return reject(new Error('no idb'));
+      const req=indexedDB.open(IDB_NAME,1);
+      req.onupgradeneeded=()=>{ const db=req.result; if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE); };
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error);
+    });
+  }
+  async function diskCacheGet_(id){
+    try{
+      const db=await idbOpen_();
+      const row=await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE,'readonly');
+        const r=tx.objectStore(IDB_STORE).get(id);
+        r.onsuccess=()=>resolve(r.result||null);
+        r.onerror=()=>reject(r.error);
+      });
+      if(row&&row.data&&row.cachedAt&&(Date.now()-row.cachedAt)<DISK_MAX_MS) return row;
+    }catch(_){}
+    try{
+      const raw=localStorage.getItem('cd_pdata_'+id);
+      if(!raw) return null;
+      const row=JSON.parse(raw);
+      if(row&&row.data&&row.cachedAt&&(Date.now()-row.cachedAt)<DISK_MAX_MS) return row;
+    }catch(_){}
+    return null;
+  }
+  async function diskCacheSet_(id,row){
+    try{
+      const db=await idbOpen_();
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction(IDB_STORE,'readwrite');
+        tx.objectStore(IDB_STORE).put(row,id);
+        tx.oncomplete=()=>resolve();
+        tx.onerror=()=>reject(tx.error);
+      });
+      try{ localStorage.removeItem('cd_pdata_'+id); }catch(_){}
+      return;
+    }catch(_){}
+    try{ localStorage.setItem('cd_pdata_'+id,JSON.stringify(row)); }catch(e){
+      /* مساحة ممتلئة — نتجاهل دون كسر التطبيق */
+      console.warn('تعذّر حفظ التخزين المحلي',e);
+    }
+  }
+  function diskCacheClear_(id){
+    try{
+      idbOpen_().then(db=>{
+        const tx=db.transaction(IDB_STORE,'readwrite');
+        tx.objectStore(IDB_STORE).delete(id);
+      }).catch(()=>{});
+    }catch(_){}
+    try{ localStorage.removeItem('cd_pdata_'+id); }catch(_){}
+  }
+
+  async function fetchProjectNetwork_(proj){
     const hasApi = proj.apiUrl && !proj.apiUrl.startsWith('PUT_');
-    if(!hasApi){ _cache[proj.id]={data:proj.data(),live:false}; return _cache[proj.id]; }
+    if(!hasApi) return {data:proj.data(),live:false};
     const token=AUTH_TOKENS[proj.id];
-    if(!token){ _cache[proj.id]={data:proj.data(),live:false,failed:true}; return _cache[proj.id]; }
+    if(!token) return {data:proj.data(),live:false,failed:true};
     try{
       const res=await fetch(apiUrlWith(proj,{token}),{method:'GET'});
       if(!res.ok) throw new Error('HTTP '+res.status);
       const j=await res.json();
       if(j.ok===false){
-        // انتهت الجلسة أو رمز غير صالح → إعادة تسجيل الدخول (فقط في وضع المدير، لا في وضع المشاركة)
         if(j.code===401 || /Unauthorized/i.test(j.error||'')){
           delete AUTH_TOKENS[proj.id]; saveTokens();
           if(!isShareView) showLogin();
         }
         throw new Error(j.error||'API error');
       }
-      _cache[proj.id]={data:j,live:true};
+      return {data:j,live:true,cachedAt:Date.now()};
     }catch(err){
       console.error('['+proj.id+'] فشل الجلب الحيّ:',err);
-      _cache[proj.id]={data:proj.data(),live:false,failed:true};
+      return {data:proj.data(),live:false,failed:true};
     }
-    return _cache[proj.id];
   }
 
-  /* يتيح لوحدة عرض مشروع (مثل لوحة الحملات) قراءة بيانات مشروع آخر مباشرةً
-     (مثلاً لحساب مقارنة "داخل/خارج الحملات" من دفاتر دفعات الطلبة والمدرسة)
-     يستخدم نفس الكاش والتوكن الحاليين، ولا يُغيّر المشروع المفتوح حالياً بالواجهة. */
+  async function loadProjectData(proj,opts={}){
+    const force=!!opts.force;
+    if(!force && _cache[proj.id] && !_cache[proj.id].failed) return _cache[proj.id];
+    if(!force){
+      const disk=await diskCacheGet_(proj.id);
+      if(disk){
+        _cache[proj.id]={data:disk.data,live:true,fromCache:true,cachedAt:disk.cachedAt};
+        return _cache[proj.id];
+      }
+    }
+    const loaded=await fetchProjectNetwork_(proj);
+    _cache[proj.id]=loaded;
+    if(loaded.live&&loaded.data){
+      await diskCacheSet_(proj.id,{cachedAt:Date.now(),data:loaded.data});
+    }
+    return loaded;
+  }
+
+  async function refreshProjectBackground_(proj,opts={}){
+    if(!proj||_bgRefreshing[proj.id]) return;
+    _bgRefreshing[proj.id]=true;
+    try{
+      if(!opts.silent) setSrcBadge(true,false,{refreshing:true});
+      const loaded=await fetchProjectNetwork_(proj);
+      if(loaded.failed||!loaded.live){
+        if(currentProject&&currentProject.id===proj.id) setSrcBadge(!!(_cache[proj.id]&&_cache[proj.id].live),true,{cached:!!(_cache[proj.id]&&_cache[proj.id].fromCache)});
+        return;
+      }
+      _cache[proj.id]={data:loaded.data,live:true,fromCache:false,cachedAt:Date.now()};
+      await diskCacheSet_(proj.id,{cachedAt:Date.now(),data:loaded.data});
+      if(currentProject&&currentProject.id===proj.id&&currentModule){
+        applyLoadedToUi_(loaded,{soft:true});
+        if(!opts.silent) toast('تم تحديث البيانات');
+      }
+    }finally{
+      _bgRefreshing[proj.id]=false;
+    }
+  }
+
+  function applyLoadedToUi_(loaded,opts={}){
+    if(!currentModule||!currentProject) return;
+    currentModule.setData(loaded.data);
+    setSrcBadge(loaded.live,!!loaded.failed,{cached:!!loaded.fromCache});
+    const activePage=$('#projectHost .page.active')?.dataset.page;
+    if(opts.soft && typeof currentModule.softRefresh==='function'){
+      try{
+        currentModule.softRefresh(sharePerm);
+        return;
+      }catch(_){}
+    }
+    const res=currentModule.render($('#projectHost'),sharePerm);
+    currentPages=res.pages;
+    buildPageNav(res.pages,res.alertCount);
+    if(activePage&&res.pages.some(p=>p.id===activePage)) goPage(activePage);
+    else if(res.pages.length) goPage(res.pages[0].id);
+  }
+
+  /* يتيح لوحدة عرض مشروع (مثل لوحة الحملات) قراءة بيانات مشروع آخر مباشرةً */
   async function fetchExtra(id){
     const proj=PROJECTS.find(p=>p.id===id);
     if(!proj) return null;
@@ -2530,9 +2670,11 @@ const Platform = (function(){
     catch(_){ return null; }
   }
 
-  function setSrcBadge(live,failed){
+  function setSrcBadge(live,failed,meta={}){
     const b=$('#srcBadge'); if(!b) return;
-    if(live){ b.className='src live'; b.innerHTML=ic('trend')+' متصل مباشرة'; }
+    if(meta.refreshing){ b.className='src refreshing'; b.innerHTML=ic('trend')+' مخزّن · جارٍ التحديث…'; }
+    else if(live&&meta.cached){ b.className='src cache'; b.innerHTML=ic('check')+' من التخزين المحلي'; }
+    else if(live){ b.className='src live'; b.innerHTML=ic('trend')+' متصل مباشرة'; }
     else if(failed){ b.className='src'; b.innerHTML=ic('alert')+' بيانات مدمجة (تعذّر الاتصال)'; }
     else { b.className='src'; b.innerHTML=ic('file')+' بيانات مدمجة'; }
   }
@@ -2544,15 +2686,32 @@ const Platform = (function(){
     if(isMobile())closeSidebar();
     $('#topProjectName').textContent=proj.name;
     document.documentElement.style.setProperty('--brand',proj.accent);
-    // حالة تحميل بسيطة داخل المضيف
-    $('#projectHost').innerHTML='<div class="empty" style="padding:80px"><div class="spin" style="margin:0 auto 16px"></div><b>جارٍ تحميل بيانات المشروع…</b></div>';
-    const loaded=await loadProjectData(proj);
-    currentModule.setData(loaded.data);
-    setSrcBadge(loaded.live,loaded.failed);
-    const res=currentModule.render($('#projectHost'),sharePerm);
-    currentPages=res.pages;
-    buildPageNav(res.pages,res.alertCount);
-    if(res.pages.length)goPage(res.pages[0].id);
+
+    // 1) عرض فوري من الذاكرة/القرص إن وُجد
+    let loaded=_cache[id];
+    if(!loaded||loaded.failed){
+      const disk=await diskCacheGet_(id);
+      if(disk) loaded={data:disk.data,live:true,fromCache:true,cachedAt:disk.cachedAt};
+    }
+    if(loaded&&loaded.data&&!loaded.failed){
+      _cache[id]=loaded;
+      currentModule.setData(loaded.data);
+      setSrcBadge(true,false,{cached:!!loaded.fromCache,refreshing:true});
+      const res=currentModule.render($('#projectHost'),sharePerm);
+      currentPages=res.pages;
+      buildPageNav(res.pages,res.alertCount);
+      if(res.pages.length)goPage(res.pages[0].id);
+      // 2) تحديث خلفي بدون انتظار
+      const age=loaded.cachedAt? (Date.now()-loaded.cachedAt) : DISK_SOFT_MS+1;
+      if(age>DISK_SOFT_MS || loaded.fromCache) refreshProjectBackground_(proj,{silent:true});
+      else setSrcBadge(true,false,{cached:false});
+      return;
+    }
+
+    // لا كاش — انتظار الشبكة مع مؤشر تحميل
+    $('#projectHost').innerHTML='<div class="empty" style="padding:80px"><div class="spin" style="margin:0 auto 16px"></div><b>جارٍ تحميل بيانات المشروع…</b><p style="color:var(--text3);margin-top:8px">المرة الأولى قد تستغرق وقتاً · بعدها تُفتح فوراً من التخزين</p></div>';
+    loaded=await loadProjectData(proj,{force:true});
+    applyLoadedToUi_(loaded,{soft:false});
   }
 
   function buildPageNav(pages,alertCount){
@@ -2602,7 +2761,11 @@ const Platform = (function(){
     $('#dbg').onclick=closeDrawer;
     const rb=$('#refreshBtn');
     if(rb){ rb.innerHTML=ic('refresh');
-      rb.onclick=async()=>{ if(!currentProject)return; delete _cache[currentProject.id]; toast('جارٍ التحديث…'); await openProject(currentProject.id); toast('تم التحديث'); }; }
+      rb.onclick=async()=>{
+        if(!currentProject)return;
+        toast('جارٍ التحديث…');
+        await refreshProjectBackground_(currentProject,{silent:false});
+      }; }
     const mb=$('#menuBtn'); if(mb){ mb.innerHTML=ic('menu'); mb.onclick=toggleSidebar; }
     $('#sbClose').onclick=closeSidebar;
     $('#sbOverlay').onclick=closeSidebar;
