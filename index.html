@@ -2076,7 +2076,6 @@ const OrphansSchoolProject = (function(){
     keep('#oRpCity','كل المدن',[...new Set(base.map(s=>s.city))].filter(Boolean).sort());
     keep('#oRpGrade','كل الصفوف',[...new Set(base.map(s=>s.grade))].filter(Boolean).sort());
     keep('#oRpHealth','كل الحالات الصحية',[...new Set(base.map(s=>s.healthStatus))].filter(Boolean).sort());
-    syncReportsPeriodControls_();
     updateScopeBanners_();
   }
   function initReports(){
@@ -2088,13 +2087,13 @@ const OrphansSchoolProject = (function(){
       countUp($('#oRpView'));
     };
     const periodApply=$('#oRpApplyPeriod'), periodReset=$('#oRpResetPeriod'), activeOnly=$('#oRpActiveOnly');
-    if(periodApply) periodApply.onclick=()=>{applyReportsPeriodToOverview_(); r();};
+    if(periodApply) periodApply.onclick=()=>{ r(); };
     if(periodReset) periodReset.onclick=()=>{
       if($('#oRpFrom')) $('#oRpFrom').value='';
       if($('#oRpTo')) $('#oRpTo').value='';
-      applyReportsPeriodToOverview_(); r();
+      r();
     };
-    if(activeOnly) activeOnly.onchange=()=>{applyReportsPeriodToOverview_(); r();};
+    if(activeOnly) activeOnly.onchange=()=>{ r(); };
     ['#oRpSearch','#oRpGender','#oRpCity','#oRpGrade','#oRpSponsor','#oRpActive','#oRpDisp','#oRpHealth'].forEach(s=>{
       const el=$(s); if(!el) return;
       el.onchange=r; if(el.tagName==='INPUT') el.oninput=r;
