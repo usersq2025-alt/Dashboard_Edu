@@ -2642,7 +2642,7 @@ const Platform = (function(){
   }
   function chk(grp,val,label,checked){return `<label class="sh-chk"><input type="checkbox" data-grp="${grp}" value="${val}" ${checked?'checked':''}><span>${esc(label)}</span></label>`;}
   function kpiLabel(proj,k){const M={total:'الإجمالي',males:'ذكور',females:'إناث',paid:'مكفولون',late:'متأخرون',monthValue:'قيمة الشهر',orphans:'الأيتام',yearValue:'محصّل سنوي',unis:'الجامعات',majors:'التخصصات',cities:'المدن',parallel:'قبول موازي',avgAge:'متوسط العمر',payCount:'الدفعات',totalIn:'الداخل',totalPaid:'المدفوع',balance:'الرصيد',remaining:'المتبقي',donationsCount:'عدد التبرعات',sponsored:'مكفولون',unsponsored:'غير مكفولين',avgProgress:'متوسط الإنجاز',active:'نشط',inactive:'غير نشط',collectRate:'نسبة التحصيل'};return M[k]||k;}
-  function chartLabel(proj,c){const M={coverage:'تغطية الكفالة',money:'القيمة الشهرية',city:'المدن',demo:'التركيبة',gender:'الجنس',years:'السنوات',unis:'الجامعات',majors:'التخصصات',admission:'نوع القبول',cities:'المدن',grade:'الصف',displaced:'نازح/مقيم',active:'نشط/غير نشط'};return M[c]||c;}
+  function chartLabel(proj,c){const M={coverage:'تغطية الكفالة',money:'القيمة الشهرية',city:'المدن',demo:'التركيبة',gender:'الجنس',years:'السنوات',unis:'الجامعات',majors:'التخصصات',admission:'نوع القبول',cities:'المدن',grade:'الصف',displaced:'نازح/مقيم',active:'نشط/غير نشط',sponsored:'الكفالة'};return M[c]||c;}
 
   function createShareLink(){
     const projId=$('#shProj').value;
