@@ -2407,8 +2407,8 @@ const Platform = (function(){
   let isShareView=false;
 
   /* ============ رموز الجلسة (tokens) ============
-     كل مشروع له رمز جلسة منفصل صادر من Apps Script الخاص به بعد تسجيل دخول
-     ناجح. لا كلمة سر تُخزَّن هنا أبداً — فقط رموز مؤقتة صالحة لمدة محدودة. */
+     كل مشروع له رمز جلسة منفصل صادر من Apps Script. عند تفعيل «تذكّر هذا الجهاز»
+     تُحفظ بيانات الدخول محلياً على الجهاز لإعادة فتح الجلسة بصمت دون طلب كلمة المرور كل مرة. */
   let AUTH_TOKENS={};
   const CREDS_KEY='cd_device_creds_v1';
   function saveTokens(){ try{localStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(_){ try{sessionStorage.setItem('cd_tokens',JSON.stringify(AUTH_TOKENS));}catch(__){} } }
