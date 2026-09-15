@@ -336,7 +336,21 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .sb-proj:hover{background:var(--bg2)}
 .sb-proj.active{background:var(--brandsoft)}
 .sb-proj.active .sb-tx b{color:var(--brand)}
-.sb-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;font-size:1.05rem}
+.sb-ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;font-size:1.05rem;overflow:hidden}
+.sb-thumb{width:100%;height:100%;object-fit:cover;display:block}
+.top-proj{order:2;display:flex;align-items:center;gap:10px;min-width:0;max-width:min(280px,42vw)}
+.top-thumb{width:36px;height:36px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--line);display:none;background:var(--bg2)}
+.top-thumb.show{display:block}
+.school-hero{display:grid;grid-template-columns:minmax(140px,220px) 1fr;gap:14px;align-items:stretch;margin-bottom:16px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--surface);box-shadow:var(--sh)}
+.school-hero img{width:100%;height:100%;min-height:120px;max-height:160px;object-fit:cover;object-position:center 30%;display:block}
+.school-hero-body{padding:14px 16px 14px 8px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}
+.school-hero-body h1{margin:0;font-size:clamp(1.15rem,2.5vw,1.45rem);font-weight:800;line-height:1.25}
+.school-hero-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+@media(max-width:720px){
+  .school-hero{grid-template-columns:1fr}
+  .school-hero img{max-height:180px;min-height:140px}
+  .school-hero-body{padding:12px 14px 14px}
+}
 .sb-tx{min-width:0}.sb-tx b{font-size:.9rem;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text)}.sb-tx small{font-size:.72rem;color:var(--text3)}
 .sb-tools{margin-top:auto;border-top:1px solid var(--line);padding:10px}
 .sb-tool{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;cursor:pointer;padding:10px 12px;border-radius:10px;color:var(--text2);font-family:inherit;font-weight:600;font-size:.86rem;transition:.14s}
@@ -348,7 +362,7 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .main-col{flex:1;min-width:0;display:flex;flex-direction:column}
 .topbar2{position:sticky;top:0;z-index:800;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:9px 16px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .menu-btn{flex-shrink:0;display:grid;order:1}
-.topbar2 .pname{order:2;font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.topbar2 .pname{font-weight:800;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .page-nav{order:4;display:flex;gap:2px;margin-inline-start:0;overflow-x:auto;scrollbar-width:none;flex:1 1 100%;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);mask-image:linear-gradient(to right,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%)}
 .page-nav::-webkit-scrollbar{display:none}
 .page-nav button{border:0;background:transparent;color:var(--text2);font-family:inherit;font-weight:600;font-size:.88rem;padding:7px 12px;border-radius:9px;cursor:pointer;white-space:nowrap;transition:.14s;display:inline-flex;align-items:center;gap:6px}
@@ -452,7 +466,10 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
   <div class="main-col">
     <div class="topbar2">
       <button class="ib menu-btn" id="menuBtn" title="القائمة" aria-label="القائمة"></button>
-      <span class="pname" id="topProjectName">—</span>
+      <div class="top-proj">
+        <img class="top-thumb" id="topProjectThumb" alt="">
+        <span class="pname" id="topProjectName">—</span>
+      </div>
       <nav class="page-nav" id="pageNav"></nav>
       <div class="top-actions">
         <span class="src" id="srcBadge"></span>
@@ -1509,62 +1526,51 @@ const OrphansSchoolProject = (function(){
       <p>${bits.join(' · ')} — يُعرض ${n} طالباً في هذا التبويب. غيّري النطاق من «النظرة العامة».</p></div></div>`;
   }
   function updateScopeBanners_(){
-    ['#oFinScope','#oGeoScope','#oStScope','#oRpScope'].forEach(sel=>{
+    ['#oFinScope','#oStScope'].forEach(sel=>{
       const el=$(sel); if(el) el.innerHTML=overviewScopeBannerHtml_();
     });
   }
   function refreshTabsFromOverviewScope_(){
     updateScopeBanners_();
-    syncReportsPeriodControls_();
     if($('#oFinFrom')) $('#oFinFrom').value=ovFrom||'';
     if($('#oFinTo')) $('#oFinTo').value=ovTo||'';
     if(pagesBuilt_.finance&&$('#oFinKpis')) buildFinance();
-    if(pagesBuilt_.geo&&$('#oGeoBody')) buildGeo();
     if(pagesBuilt_.students&&$('#oStGrid')){ refillStudentFilterOptions_(); oPage=1; renderCards(); }
-    if(pagesBuilt_.reports&&$('#oRpView')){
-      refillReportFilterOptions_();
-      const list=reportFiltered();
-      const cnt=$('#oRpCount'); if(cnt) cnt.textContent=list.length+' طالب';
-      $('#oRpView').innerHTML=report(); countUp($('#oRpView'));
-    }
   }
 
-  /* قائمة الصفحات (للـ sidebar وللمشاركة) */
+  /* قائمة الصفحات — مختصرة: نظرة عامة + مالية + طلاب */
   const PAGES=[
     {id:'overview',label:'النظرة العامة',icon:'gauge'},
     {id:'finance',label:'المتابعة المالية',icon:'wallet'},
-    {id:'geo',label:'التصنيفات',icon:'cap'},
     {id:'students',label:'بطاقات الطلاب',icon:'child'},
-    {id:'reports',label:'التقارير',icon:'file'},
   ];
 
-  /* عناصر قابلة للإخفاء في المشاركة (KPIs + charts) */
   const ELEMENTS={
     kpis:['total','males','females','sponsored','unsponsored','active','inactive','avgProgress','totalPaid','remaining','donationsCount'],
-    charts:['gender','grade','displaced','sponsored','active'],
+    charts:['gender','grade','displaced','sponsored','health','active'],
   };
 
   function render(host,perm){
     const allowPage=id=>!perm||!perm.pages||perm.pages.includes(id);
     const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
     const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
-    ovActiveOnly=true; ovFrom=''; ovTo=''; // افتراضي: النشطون — أسرع وأوضح للإدارة
+    ovActiveOnly=true; ovFrom=''; ovTo='';
     pagesBuilt_={};
     const a=computeOverviewView_().a;
 
     let pagesHtml='';
     if(allowPage('overview'))pagesHtml+=pageOverview(a,allowKpi,allowChart);
     if(allowPage('finance'))pagesHtml+=pageFinance();
-    if(allowPage('geo'))pagesHtml+=pageGeo();
     if(allowPage('students'))pagesHtml+=pageStudents();
-    if(allowPage('reports'))pagesHtml+=pageReports();
     host.innerHTML=pagesHtml;
 
-    // ابنِ النظرة العامة فوراً؛ باقي التبويبات عند أول فتح (تسريع كبير)
     if(allowPage('overview')){
       pagesBuilt_.overview=true;
       initOverviewFilters(allowKpi,allowChart);
       buildOverview(allowKpi,allowChart);
+      const csv=$('#oOvCsv'), pr=$('#oOvPrint');
+      if(csv) csv.onclick=exportCSV;
+      if(pr) pr.onclick=()=>window.print();
     }
 
     return {pages:PAGES.filter(p=>allowPage(p.id)),alertCount:a.unsponsored};
@@ -1573,11 +1579,8 @@ const OrphansSchoolProject = (function(){
     if(pagesBuilt_[id]) return;
     pagesBuilt_[id]=true;
     if(id==='finance') buildFinance();
-    else if(id==='geo') buildGeo();
     else if(id==='students'){ initFilters(); renderCards(); }
-    else if(id==='reports') initReports();
   }
-  /** تحديث حي بدون إعادة ضبط الفلاتر أو شاشة تحميل */
   function softRefresh(perm){
     const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
     const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
@@ -1591,7 +1594,7 @@ const OrphansSchoolProject = (function(){
       pagesBuilt_.overview=true;
       buildOverview(allowKpi,allowChart);
     }
-    ['finance','geo','students','reports'].forEach(id=>{ if(id!==active) delete pagesBuilt_[id]; });
+    ['finance','students'].forEach(id=>{ if(id!==active) delete pagesBuilt_[id]; });
     if(active!=='overview'){
       delete pagesBuilt_[active];
       onPageShow(active);
@@ -1603,7 +1606,18 @@ const OrphansSchoolProject = (function(){
     const cov=a.total?Math.round(a.sponsored/a.total*100):0;
     const allN=DB.students.length, actN=DB.students.filter(isActiveStudent).length;
     return `<section class="page active" data-page="overview">
-      <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta" id="oOvMeta">${a.total} طالب · تغطية ${cov}%</div></div>
+      <div class="school-hero">
+        <img src="assets/school-molham.jpg" alt="طلاب مدرسة ملهم للأيتام" width="440" height="280" loading="eager" decoding="async">
+        <div class="school-hero-body">
+          <div class="eb">مدرسة ملهم للأيتام · إدلب</div>
+          <h1>النظرة العامة على المشروع</h1>
+          <div class="meta" id="oOvMeta">${a.total} طالب · تغطية ${cov}%</div>
+          <div class="school-hero-actions">
+            <button class="btn gold" id="oOvCsv" type="button">${ic('file')} تصدير CSV</button>
+            <button class="btn" id="oOvPrint" type="button">${ic('file')} طباعة / PDF</button>
+          </div>
+        </div>
+      </div>
       <div class="toolbar" id="oOvToolbar">
         <div class="seg" id="oOvCohort" role="group" aria-label="نطاق الطلاب">
           <button type="button" class="seg-btn on" data-v="active" id="oOvBtnActive">${ic('check')} الطلاب النشطون <small style="opacity:.75;font-weight:700">(${actN})</small></button>
@@ -1614,7 +1628,7 @@ const OrphansSchoolProject = (function(){
         <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="oOvTo"></label>
         <button class="btn pri" id="oOvApply">${ic('check')} تطبيق الفترة</button>
         <button class="btn" id="oOvReset">${ic('trend')} بدون فترة زمنية</button>
-        <span class="cnt tb-hint" style="margin-inline-start:auto">النطاق ينعكس على كل التبويبات</span>
+        <span class="cnt tb-hint" style="margin-inline-start:auto">النطاق ينعكس على المالية والطلاب</span>
       </div>
       <div id="oOvModeBanner"></div>
       <div id="oOvAlert"></div>
@@ -1623,7 +1637,7 @@ const OrphansSchoolProject = (function(){
       <div class="slabel" id="oOvFinLabel">المتابعة المالية (من المنصة)</div>
       <div class="kpis" id="oOvFinKpis"></div>
       <div id="oOvPeriodFinance"></div>
-      <div class="slabel">التحليل البصري <span class="hint">يتغيّر مع نطاق الطلاب أعلاه</span></div>
+      <div class="slabel">التصنيفات والتحليل البصري <span class="hint">صف · صحة · نازح/مقيم · كفالة</span></div>
       <div class="grid g2" id="oOvCharts"></div>
     </section>`;
   }
@@ -1806,30 +1820,12 @@ const OrphansSchoolProject = (function(){
       btn.onclick=()=>{
         ovActiveOnly=btn.dataset.v==='active';
         syncSeg();
-        syncReportsPeriodControls_();
         buildOverview(lastOvAllowK,lastOvAllowC);
         refreshTabsFromOverviewScope_();
       };
     });
-    if(apply) apply.onclick=()=>{ovFrom=from.value||'';ovTo=to.value||'';syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
-    if(reset) reset.onclick=()=>{ovFrom='';ovTo='';if(from)from.value='';if(to)to.value='';syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
-  }
-  function syncReportsPeriodControls_(){
-    const chk=$('#oRpActiveOnly'),from=$('#oRpFrom'),to=$('#oRpTo');
-    if(chk) chk.checked=ovActiveOnly;
-    if(from) from.value=ovFrom||'';
-    if(to) to.value=ovTo||'';
-  }
-  function applyReportsPeriodToOverview_(){
-    const chk=$('#oRpActiveOnly'),from=$('#oRpFrom'),to=$('#oRpTo');
-    ovActiveOnly=chk?!!chk.checked:ovActiveOnly;
-    ovFrom=(from&&from.value)||'';
-    ovTo=(to&&to.value)||'';
-    $$('#oOvCohort .seg-btn').forEach(b=>b.classList.toggle('on', (b.dataset.v==='active')===ovActiveOnly));
-    if($('#oOvFrom')) $('#oOvFrom').value=ovFrom;
-    if($('#oOvTo')) $('#oOvTo').value=ovTo;
-    if($('#oOvKpis')) buildOverview(lastOvAllowK,lastOvAllowC);
-    refreshTabsFromOverviewScope_();
+    if(apply) apply.onclick=()=>{ovFrom=from.value||'';ovTo=to.value||'';buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
+    if(reset) reset.onclick=()=>{ovFrom='';ovTo='';if(from)from.value='';if(to)to.value='';buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
   }
   function buildOverview(aK,aC){
     const {mode,S,a}=computeOverviewView_();
@@ -1925,6 +1921,7 @@ const OrphansSchoolProject = (function(){
       if(a.genderUnknown>0){dsegs.push({label:'غير محدد',value:a.genderUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+a.genderUnknown,color:cssv('--text3')});}
       C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} ضمن النطاق</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
     if(aC('grade')){const gc=topCounts2(S,s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع النطاق</span></h3>${gc.length?hbars(gc,{color:cssv('--gold')}):emptyState('cap','لا صفوف مسجّلة','')}</div>`);}
+    if(aC('health')){const hc=topCounts2(S,s=>s.healthStatus,8);C.push(`<div class="panel"><h3>الحالة الصحية <span class="tag">تصنيف</span></h3>${hc.length?hbars(hc,{color:cssv('--brand')}):emptyState('heart','لا بيانات صحية','')}</div>`);}
     if(aC('displaced')){
       const disp=S.filter(s=>String(s.displaced).trim()==='نازح').length;
       const resident=S.filter(s=>String(s.displaced).trim()==='مقيم').length;
@@ -2162,7 +2159,7 @@ const OrphansSchoolProject = (function(){
       <div class="tw"><table class="t"><thead><tr><th>الحالة</th><th>عدد الطلاب</th></tr></thead><tbody>${dispC.map(u=>`<tr><td>${esc(u.label)}</td><td class="num">${u.value}</td></tr>`).join('')||'<tr><td colspan="2" style="text-align:center">لا بيانات</td></tr>'}</tbody></table></div>`;
   }
   function exportCSV(){
-    const list=reportFiltered();
+    const list=scopedStudents_();
     const head=['رقم الصندوق','الاسم','الجنس','المدينة','الصف الدراسي','الحالة الصحية','نازح/مقيم','مكفول','نشط','نسبة الإنجاز','عدد التبرعات','إجمالي الداخل','إجمالي المدفوع','المتبقي'];
     const rows=list.map(s=>[s.box,s.name,s.gender,s.city,s.grade,s.healthStatus,s.displaced,isSponsored(s)?'نعم':'لا',isActiveStudent(s)?'نشط':'غير نشط',s.progressPct,s.donationsCount,s.totalIn,s.totalPaid,s.remainingBalance]);
     Platform.downloadCSV([head,...rows],'مدرسة_الأيتام');
@@ -2392,6 +2389,7 @@ const Platform = (function(){
      accent:'#2563a8',data:()=>EMBEDDED_STUDENTS,module:()=>StudentsProject,
      apiUrl:'https://script.google.com/macros/s/AKfycbw4WzjKaOqGFAJzk_fIA61zOt_ymWbO2Bn8_E31xpmGl-OYj5m2pMYcS976nBJ_EDhttg/exec'},
     {id:'school',name:'مشروع مدرسة ملهم للأيتام',sub:'إدلب',icon:'building',
+     thumb:'assets/school-molham.jpg',
      accent:'#7c3aed',data:()=>EMBEDDED_ORPHANS_SCHOOL,module:()=>OrphansSchoolProject,
      apiUrl:'https://script.google.com/macros/s/AKfycbyj0ENtX1q6wRjNlndWvpgSXayBvwy3Xtffk5haaYBRUIeLlDah2tvVUbu-cabl29oW6Q/exec'},
     {id:'campaigns',name:'لوحة الحملات',sub:'حملات قسم التعليم',icon:'wallet',
@@ -2511,12 +2509,19 @@ const Platform = (function(){
   function buildSidebar(){
     $('#sbProjects').innerHTML=PROJECTS.map(p=>`
       <button class="sb-proj" data-proj="${p.id}" onclick="Platform.openProject('${p.id}')">
-        <span class="sb-ic" style="background:${p.accent}22;color:${p.accent}">${ic(p.icon)}</span>
+        <span class="sb-ic" style="background:${p.accent}22;color:${p.accent}">${p.thumb?`<img class="sb-thumb" src="${esc(p.thumb)}" alt="">`:ic(p.icon)}</span>
         <span class="sb-tx"><b>${esc(p.name)}</b><small>${esc(p.sub)}</small></span></button>`).join('');
-    // admin tools
     $('#sbTools').style.display='block';
     $('#shareBtn').innerHTML=ic('share')+' مشاركة لوحة';
     $('#logoutBtn').innerHTML=ic('logout')+' تسجيل الخروج';
+  }
+  function setTopProjectChrome_(proj,suffix){
+    const nameEl=$('#topProjectName'), thumbEl=$('#topProjectThumb');
+    if(nameEl) nameEl.textContent=(proj.name||'—')+(suffix||'');
+    if(thumbEl){
+      if(proj.thumb){ thumbEl.src=proj.thumb; thumbEl.alt=proj.name||''; thumbEl.classList.add('show'); }
+      else { thumbEl.removeAttribute('src'); thumbEl.classList.remove('show'); }
+    }
   }
 
   /* ---- تخزين مؤقت دائم (IndexedDB + localStorage احتياطي) + Stale-While-Revalidate ---- */
@@ -2684,7 +2689,7 @@ const Platform = (function(){
     currentProject=proj;currentModule=proj.module();
     $$('#sbProjects .sb-proj').forEach(b=>b.classList.toggle('active',b.dataset.proj===id));
     if(isMobile())closeSidebar();
-    $('#topProjectName').textContent=proj.name;
+    setTopProjectChrome_(proj);
     document.documentElement.style.setProperty('--brand',proj.accent);
 
     // 1) عرض فوري من الذاكرة/القرص إن وُجد
@@ -2805,7 +2810,7 @@ const Platform = (function(){
   }
   function chk(grp,val,label,checked){return `<label class="sh-chk"><input type="checkbox" data-grp="${grp}" value="${val}" ${checked?'checked':''}><span>${esc(label)}</span></label>`;}
   function kpiLabel(proj,k){const M={total:'الإجمالي',males:'ذكور',females:'إناث',paid:'مكفولون',late:'متأخرون',monthValue:'قيمة الشهر',orphans:'الأيتام',yearValue:'محصّل سنوي',unis:'الجامعات',majors:'التخصصات',cities:'المدن',parallel:'قبول موازي',avgAge:'متوسط العمر',payCount:'الدفعات',totalIn:'الداخل',totalPaid:'المدفوع',balance:'الرصيد',remaining:'المتبقي',donationsCount:'عدد التبرعات',sponsored:'مكفولون',unsponsored:'غير مكفولين',avgProgress:'متوسط الإنجاز',active:'نشط',inactive:'غير نشط',collectRate:'نسبة التحصيل'};return M[k]||k;}
-  function chartLabel(proj,c){const M={coverage:'تغطية الكفالة',money:'القيمة الشهرية',city:'المدن',demo:'التركيبة',gender:'الجنس',years:'السنوات',unis:'الجامعات',majors:'التخصصات',admission:'نوع القبول',cities:'المدن',grade:'الصف',displaced:'نازح/مقيم',active:'نشط/غير نشط',sponsored:'الكفالة'};return M[c]||c;}
+  function chartLabel(proj,c){const M={coverage:'تغطية الكفالة',money:'القيمة الشهرية',city:'المدن',demo:'التركيبة',gender:'الجنس',years:'السنوات',unis:'الجامعات',majors:'التخصصات',admission:'نوع القبول',cities:'المدن',grade:'الصف',displaced:'نازح/مقيم',active:'نشط/غير نشط',sponsored:'الكفالة',health:'الحالة الصحية'};return M[c]||c;}
 
   function createShareLink(){
     const projId=$('#shProj').value;
@@ -2862,7 +2867,7 @@ const Platform = (function(){
     currentProject=proj;currentModule=proj.module();
     document.documentElement.style.setProperty('--brand',proj.accent);
     sharePerm={pages:cfg.pages,kpis:cfg.kpis,charts:cfg.charts,hideNationalId:cfg.hideNationalId};
-    $('#topProjectName').textContent=proj.name+' — عرض مشترك';
+    setTopProjectChrome_(proj,' — عرض مشترك');
     $('#sbShareLabel').style.display='flex';
     $('#sbShareLabel').innerHTML=`<span class="sb-ic" style="background:${proj.accent}22;color:${proj.accent}">${ic(proj.icon)}</span><span class="sb-tx"><b>${esc(proj.name)}</b><small>عرض مشترك مقيّد</small></span>`;
     $('#projectHost').innerHTML='<div class="empty" style="padding:80px"><div class="spin" style="margin:0 auto 16px"></div><b>جارٍ التحميل…</b></div>';
