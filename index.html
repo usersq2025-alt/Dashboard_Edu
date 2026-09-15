@@ -250,6 +250,18 @@ table.t tfoot td{padding:12px 14px;font-weight:800;background:var(--surface2);bo
 .money-pair .net{font-size:.78rem;color:var(--ok);font-weight:700}
 .money-pair .fee{font-size:.72rem;color:var(--warn);font-weight:600}
 .panel .chart-legend{padding:0 4px 4px}
+/* مبدّل نطاق الطلاب (نشط / إجمالي) */
+.seg{display:inline-flex;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
+.seg-btn{appearance:none;border:0;background:transparent;color:var(--text2);font:inherit;font-weight:800;font-size:.86rem;padding:9px 14px;border-radius:9px;cursor:pointer;transition:.15s}
+.seg-btn:hover{color:var(--text)}
+.seg-btn.on{background:var(--surface);color:var(--brand);box-shadow:var(--sh)}
+.seg-btn.on[data-v="active"]{color:var(--ok)}
+.fin-month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:12px}
+.fin-month-card{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.fin-month-card b{display:block;font-size:.78rem;color:var(--text3);margin-bottom:6px}
+.fin-month-card .fg{font-weight:800;font-size:.95rem}
+.fin-month-card .fn{font-weight:700;font-size:.84rem;color:var(--ok)}
+.fin-month-card .ff{font-size:.72rem;color:var(--warn);margin-top:2px}
 @media(max-width:980px){
   .toolbar{gap:8px}
   .toolbar input,.toolbar select,.toolbar .btn{flex:1 1 calc(50% - 8px);min-width:140px}
@@ -655,6 +667,32 @@ function svgLine(labels,values,opts={}){
     pts.forEach((p,i)=>{g+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="${col}"><title>${esc(labels[i])}${s.label?(' · '+s.label):''}: ${vals[i]}</title></circle>`;});
   });
   labels.forEach((lb,i)=>{const x=pad.l+stepX*i;g+=`<text class="axis" x="${x.toFixed(1)}" y="${H-12}" text-anchor="middle">${esc(lb)}</text>`;});
+  return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
+}
+/** أعمدة مزدوجة واضحة: A مقابل B مع قيم فوق الأعمدة */
+function svgTwinBars(labels,A,B,opts={}){
+  const W=opts.w||640,H=opts.h||300,pad={t:28,r:12,b:40,l:48};
+  const max=Math.max(1,...A,...B);
+  const iw=W-pad.l-pad.r,ih=H-pad.t-pad.b,bw=iw/Math.max(1,labels.length);
+  const gap=Math.min(8,bw*.12), pair=Math.min(56,bw*.7), barw=(pair-gap)/2;
+  const cA=opts.colorA||cssv('--gold'),cB=opts.colorB||cssv('--ok');
+  let g='';
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ih-(ih*i/4);
+    g+=`<line class="gl" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/>`;
+    g+=`<text class="axis" x="${pad.l-6}" y="${y+3}" text-anchor="end">${fmt(Math.round(max*i/4))}</text>`;
+  }
+  labels.forEach((lb,i)=>{
+    const cx=pad.l+bw*i+bw/2;
+    const hA=ih*(A[i]/max),hB=ih*(B[i]/max);
+    const xA=cx-pair/2,xB=cx-pair/2+barw+gap;
+    const yA=pad.t+ih-hA,yB=pad.t+ih-hB;
+    g+=`<rect x="${xA.toFixed(1)}" y="${yA.toFixed(1)}" width="${barw.toFixed(1)}" height="${Math.max(0,hA).toFixed(1)}" rx="4" fill="${cA}"><title>${esc(lb)} مجمل: ${fmt(A[i])}</title></rect>`;
+    g+=`<rect x="${xB.toFixed(1)}" y="${yB.toFixed(1)}" width="${barw.toFixed(1)}" height="${Math.max(0,hB).toFixed(1)}" rx="4" fill="${cB}"><title>${esc(lb)} صافي: ${fmt(B[i])}</title></rect>`;
+    if(A[i]>0) g+=`<text class="axis" x="${(xA+barw/2).toFixed(1)}" y="${(yA-4).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700">${fmt(Math.round(A[i]))}</text>`;
+    if(B[i]>0) g+=`<text class="axis" x="${(xB+barw/2).toFixed(1)}" y="${(yB-4).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="${cB}">${fmt(Math.round(B[i]))}</text>`;
+    g+=`<text class="axis" x="${cx.toFixed(1)}" y="${H-14}" text-anchor="middle" font-size="11">${esc(lb)}</text>`;
+  });
   return `<svg class="svgchart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;
 }
 function svgDonut(segs,opts={}){
@@ -1274,8 +1312,10 @@ const StudentsProject = (function(){
    =================================================================== */
 const OrphansSchoolProject = (function(){
   let DB={students:[],donations:[]};
+  let donationsByBox_={};
   let oPage=1;
   let geoMap=null;
+  let pagesBuilt_={};
   /** الحسم الإداري والتشغيلي: 22% من المجمل → الصافي 78% */
   const ADMIN_OPS_FEE_RATE=0.22;
   const FEE_LABEL='الحسم الإداري والتشغيلي';
@@ -1325,7 +1365,7 @@ const OrphansSchoolProject = (function(){
   }
   function monthsFromLedger(box){
     const o={};MONTHS.forEach(m=>o[m]=0);
-    studentDonations(box).forEach(d=>{
+    (donationsByBox_[String(box)]||[]).forEach(d=>{
       const mi=Number(String(d.date||'').slice(5,7))-1;
       if(mi>=0&&mi<12)o[MONTHS[mi]]+=n0(d.amount);
     });
@@ -1346,6 +1386,15 @@ const OrphansSchoolProject = (function(){
       const gross=parseMoney(d.amount);
       const net=Math.round(gross*(1-ADMIN_OPS_FEE_RATE)*100)/100;
       return {...d,amount:gross,netAmount:net,adminFee:Math.max(0,gross-net)};
+    });
+    /* فهرسة مرة واحدة — تجنّب فلترة كل التبرعات لكل طالب عند التحميل (كان السبب الرئيسي للبطء) */
+    donationsByBox_={};
+    DB.donations.forEach(d=>{
+      const k=String(d.box);
+      (donationsByBox_[k]=donationsByBox_[k]||[]).push(d);
+    });
+    Object.keys(donationsByBox_).forEach(k=>{
+      donationsByBox_[k].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
     });
     DB.students=(j.students||[]).map(s=>{
       if(!s)return s;
@@ -1374,9 +1423,6 @@ const OrphansSchoolProject = (function(){
 
   function aggFromList_(S){
     const males=S.filter(isMale).length,females=S.filter(isFemale).length,genderUnknown=S.length-males-females,sponsored=S.filter(isSponsored).length;
-    /* تنبيه: كان الحساب السابق يستثني الطلاب غير المكفولين (progressPct=0) من
-       المتوسط، فيظهر "متوسط الإنجاز" وكأنه 100% رغم أن أغلب الطلاب غير مكفولين
-       أصلاً. الآن يُحتسب المتوسط على كل الطلاب فيعكس الواقع الحقيقي للبرنامج. */
     const progVals=S.map(s=>n0(s.progressPct));
     const avgProgress=progVals.length?Math.round(progVals.reduce((a,b)=>a+b,0)/progVals.length):0;
     const totalIn=S.reduce((a,s)=>a+n0(s.totalIn),0);
@@ -1384,11 +1430,11 @@ const OrphansSchoolProject = (function(){
     const remaining=S.reduce((a,s)=>a+n0(s.remainingBalance),0);
     const donationsCount=S.reduce((a,s)=>a+n0(s.donationsCount),0);
     const active=S.filter(isActiveStudent).length;
-    return{total:S.length,males,females,genderUnknown,sponsored,unsponsored:S.length-sponsored,active,inactive:S.length-active,avgProgress,totalIn,totalPaid,remaining,donationsCount};
+    return{total:S.length,males,females,genderUnknown,sponsored,unsponsored:S.length-sponsored,active,inactive:S.length-active,avgProgress,totalIn,totalPaid,remaining,donationsCount,allTotal:DB.students.length,allActive:DB.students.filter(isActiveStudent).length};
   }
   function agg(){ return aggFromList_(DB.students); }
   function studentDonations(box){
-    return DB.donations.filter(d=>String(d.box)===String(box)).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+    return donationsByBox_[String(box)]||[];
   }
 
   /* ============================================================
@@ -1405,7 +1451,7 @@ const OrphansSchoolProject = (function(){
        التبرعات نفسها (المبلغ/العدد/المتبرعين) تُحسب بدقة من تواريخها
        الفعلية بسجل التبرعات ضمن نفس الفترة.
   ============================================================ */
-  let ovActiveOnly=false, ovFrom='', ovTo='';
+  let ovActiveOnly=true, ovFrom='', ovTo='';
   function computeOverviewView_(){
     const hasPeriod=!!(ovFrom||ovTo);
     if(!hasPeriod){
@@ -1439,16 +1485,17 @@ const OrphansSchoolProject = (function(){
   /** الطلاب ضمن فلتر النظرة العامة — أساس بقية التبويبات */
   function scopedStudents_(){ return computeOverviewView_().S; }
   function scopedBoxSet_(){ return new Set(scopedStudents_().map(s=>String(s.box))); }
-  function overviewScopeActive_(){ return !!(ovActiveOnly||ovFrom||ovTo); }
+  function overviewScopeActive_(){ return !!(ovFrom||ovTo) || !ovActiveOnly; }
   function overviewScopeBannerHtml_(){
     if(!overviewScopeActive_()) return '';
     const n=scopedStudents_().length;
     const bits=[];
-    if(ovActiveOnly) bits.push('نشط فقط');
+    if(!ovActiveOnly) bits.push('إجمالي الطلاب (نشط + غير نشط)');
+    else bits.push('نشطون فقط');
     if(ovFrom||ovTo) bits.push('من '+(ovFrom||'بداية السجل')+' إلى '+(ovTo||'اليوم'));
     return `<div class="alertbar" style="background:var(--brandsoft);border-inline-start:3px solid var(--brand);margin-bottom:14px"><div class="tx">
-      <b>${ic('gauge')} مقيّد بفلتر النظرة العامة</b>
-      <p>${bits.join(' · ')} — يُعرض ${n} طالباً فقط في هذا التبويب. غيّري الفلتر من «النظرة العامة» أو اضغطي «الوضع الحالي».</p></div></div>`;
+      <b>${ic('gauge')} نطاق العرض مخصّص</b>
+      <p>${bits.join(' · ')} — يُعرض ${n} طالباً في هذا التبويب. غيّري النطاق من «النظرة العامة».</p></div></div>`;
   }
   function updateScopeBanners_(){
     ['#oFinScope','#oGeoScope','#oStScope','#oRpScope'].forEach(sel=>{
@@ -1460,10 +1507,10 @@ const OrphansSchoolProject = (function(){
     syncReportsPeriodControls_();
     if($('#oFinFrom')) $('#oFinFrom').value=ovFrom||'';
     if($('#oFinTo')) $('#oFinTo').value=ovTo||'';
-    if($('#oFinKpis')) buildFinance();
-    if($('#oGeoBody')) buildGeo();
-    if($('#oStGrid')){ refillStudentFilterOptions_(); oPage=1; renderCards(); }
-    if($('#oRpView')){
+    if(pagesBuilt_.finance&&$('#oFinKpis')) buildFinance();
+    if(pagesBuilt_.geo&&$('#oGeoBody')) buildGeo();
+    if(pagesBuilt_.students&&$('#oStGrid')){ refillStudentFilterOptions_(); oPage=1; renderCards(); }
+    if(pagesBuilt_.reports&&$('#oRpView')){
       refillReportFilterOptions_();
       const list=reportFiltered();
       const cnt=$('#oRpCount'); if(cnt) cnt.textContent=list.length+' طالب';
@@ -1475,7 +1522,7 @@ const OrphansSchoolProject = (function(){
   const PAGES=[
     {id:'overview',label:'النظرة العامة',icon:'gauge'},
     {id:'finance',label:'المتابعة المالية',icon:'wallet'},
-    {id:'geo',label:'التوزّع الجغرافي',icon:'pin'},
+    {id:'geo',label:'التصنيفات',icon:'cap'},
     {id:'students',label:'بطاقات الطلاب',icon:'child'},
     {id:'reports',label:'التقارير',icon:'file'},
   ];
@@ -1483,15 +1530,16 @@ const OrphansSchoolProject = (function(){
   /* عناصر قابلة للإخفاء في المشاركة (KPIs + charts) */
   const ELEMENTS={
     kpis:['total','males','females','sponsored','unsponsored','active','inactive','avgProgress','totalPaid','remaining','donationsCount'],
-    charts:['gender','city','grade','displaced','active'],
+    charts:['gender','grade','displaced','sponsored','active'],
   };
 
   function render(host,perm){
     const allowPage=id=>!perm||!perm.pages||perm.pages.includes(id);
     const allowKpi=id=>!perm||!perm.kpis||perm.kpis.includes(id);
     const allowChart=id=>!perm||!perm.charts||perm.charts.includes(id);
-    ovActiveOnly=false; ovFrom=''; ovTo=''; // إعادة تصفير فلاتر النظرة العامة عند كل تحميل بيانات جديد
-    const a=agg();
+    ovActiveOnly=true; ovFrom=''; ovTo=''; // افتراضي: النشطون — أسرع وأوضح للإدارة
+    pagesBuilt_={};
+    const a=computeOverviewView_().a;
 
     let pagesHtml='';
     if(allowPage('overview'))pagesHtml+=pageOverview(a,allowKpi,allowChart);
@@ -1501,31 +1549,41 @@ const OrphansSchoolProject = (function(){
     if(allowPage('reports'))pagesHtml+=pageReports();
     host.innerHTML=pagesHtml;
 
-    // build dynamic content
-    if(allowPage('overview')){initOverviewFilters(allowKpi,allowChart);buildOverview(allowKpi,allowChart);}
-    if(allowPage('finance'))buildFinance();
-    if(allowPage('geo'))buildGeo();
-    if(allowPage('students')){initFilters();renderCards();}
-    if(allowPage('reports'))initReports();
+    // ابنِ النظرة العامة فوراً؛ باقي التبويبات عند أول فتح (تسريع كبير)
+    if(allowPage('overview')){
+      pagesBuilt_.overview=true;
+      initOverviewFilters(allowKpi,allowChart);
+      buildOverview(allowKpi,allowChart);
+    }
 
     return {pages:PAGES.filter(p=>allowPage(p.id)),alertCount:a.unsponsored};
+  }
+  function onPageShow(id){
+    if(pagesBuilt_[id]) return;
+    pagesBuilt_[id]=true;
+    if(id==='finance') buildFinance();
+    else if(id==='geo') buildGeo();
+    else if(id==='students'){ initFilters(); renderCards(); }
+    else if(id==='reports') initReports();
   }
 
   /* ---- pages markup ---- */
   function pageOverview(a,aK,aC){
     const cov=a.total?Math.round(a.sponsored/a.total*100):0;
+    const allN=DB.students.length, actN=DB.students.filter(isActiveStudent).length;
     return `<section class="page active" data-page="overview">
       <div class="phead"><div><div class="eb">لوحة القيادة</div><h1>النظرة العامة على المشروع</h1></div><div class="meta" id="oOvMeta">${a.total} طالب · تغطية ${cov}%</div></div>
       <div class="toolbar" id="oOvToolbar">
-        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:700">
-          <input type="checkbox" id="oOvActiveOnly" style="width:16px;height:16px;cursor:pointer"> ${ic('check')} نشط فقط
-        </label>
+        <div class="seg" id="oOvCohort" role="group" aria-label="نطاق الطلاب">
+          <button type="button" class="seg-btn on" data-v="active" id="oOvBtnActive">${ic('check')} الطلاب النشطون <small style="opacity:.75;font-weight:700">(${actN})</small></button>
+          <button type="button" class="seg-btn" data-v="all" id="oOvBtnAll">إجمالي الطلاب <small style="opacity:.75;font-weight:700">(${allN})</small></button>
+        </div>
         <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
         <label style="display:flex;align-items:center;gap:6px">من <input type="date" id="oOvFrom"></label>
         <label style="display:flex;align-items:center;gap:6px">إلى <input type="date" id="oOvTo"></label>
-        <button class="btn pri" id="oOvApply">${ic('check')} تطبيق</button>
-        <button class="btn" id="oOvReset">${ic('trend')} الوضع الحالي (بدون فلترة زمنية)</button>
-        <span class="cnt tb-hint" style="margin-inline-start:auto">الفلاتر تنعكس على كل التبويبات</span>
+        <button class="btn pri" id="oOvApply">${ic('check')} تطبيق الفترة</button>
+        <button class="btn" id="oOvReset">${ic('trend')} بدون فترة زمنية</button>
+        <span class="cnt tb-hint" style="margin-inline-start:auto">النطاق ينعكس على كل التبويبات</span>
       </div>
       <div id="oOvModeBanner"></div>
       <div id="oOvAlert"></div>
@@ -1534,7 +1592,7 @@ const OrphansSchoolProject = (function(){
       <div class="slabel" id="oOvFinLabel">المتابعة المالية (من المنصة)</div>
       <div class="kpis" id="oOvFinKpis"></div>
       <div id="oOvPeriodFinance"></div>
-      <div class="slabel">التحليل البصري</div>
+      <div class="slabel">التحليل البصري <span class="hint">يتغيّر مع نطاق الطلاب أعلاه</span></div>
       <div class="grid g2" id="oOvCharts"></div>
     </section>`;
   }
@@ -1551,8 +1609,8 @@ const OrphansSchoolProject = (function(){
       <select id="oFinCity"><option value="">كل المدن</option></select>
     </div>
     <div class="kpis" id="oFinKpis"></div>
-    <div class="slabel">اتجاه التبرعات شهرياً <span class="hint">مجمل مقابل صافي بعد الحسم 22%</span></div>
-    <div class="panel"><div id="oFinTrend"></div><div id="oFinTrendLeg"></div></div>
+    <div class="slabel">اتجاه التبرعات شهرياً <span class="hint">عمود ذهبي = مجمل · أخضر = صافي بعد حسم 22%</span></div>
+    <div class="panel"><div id="oFinTrend"></div><div id="oFinTrendLeg"></div><div id="oFinMonthCards"></div></div>
     <div class="slabel">أكثر الطلاب استفادة (صافي بعد الحسم) <span class="tag">اضغط الاسم لفتح البطاقة</span></div>
     <div class="panel"><div id="oFinTop"></div></div>
     <div class="slabel">سجل التبرعات (أحدث 300) <span class="cnt" id="oFinCount"></span></div>
@@ -1607,16 +1665,26 @@ const OrphansSchoolProject = (function(){
       const tr=$('#oFinTrend'),leg=$('#oFinTrendLeg');
       if(tr){
         if(mk.length){
-          tr.innerHTML=svgLine(mk.map(k=>k.slice(2)),mk.map(k=>Math.round(byM[k])),{
-            series:[
-              {values:mk.map(k=>Math.round(byM[k])),color:cssv('--gold'),label:'مجمل'},
-              {values:mk.map(k=>Math.round(byMNet[k]||0)),color:cssv('--ok'),label:'صافي'}
-            ]
+          const labs=mk.map(k=>{
+            const parts=k.split('-');
+            const mi=Number(parts[1])-1;
+            return (MONTHS[mi]||k).slice(0,3)+' ’'+String(parts[0]).slice(2);
           });
+          const grossVals=mk.map(k=>Math.round(byM[k]));
+          const netVals=mk.map(k=>Math.round(byMNet[k]||0));
+          tr.innerHTML=svgTwinBars(labs,grossVals,netVals,{colorA:cssv('--gold'),colorB:cssv('--ok')});
           if(leg)leg.innerHTML=legend([{label:'مجمل الوارد',color:cssv('--gold')},{label:'صافي بعد الحسم 22%',color:cssv('--ok')}]);
+          const cards=$('#oFinMonthCards');
+          if(cards){
+            cards.innerHTML=`<div class="fin-month-grid">${mk.map((k,i)=>{
+              const g=byM[k],n=byMNet[k]||0,f=Math.max(0,g-n);
+              return `<div class="fin-month-card"><b>${esc(labs[i])}</b><div class="fg num">${usd(g)}</div><div class="fn num">صافي ${usd(n)}</div><div class="ff">حسم ${usd(f)}</div></div>`;
+            }).join('')}</div>`;
+          }
         }else{
           tr.innerHTML=emptyState('trend','لا تبرعات ضمن هذه الفلاتر','وسّعي نطاق التاريخ أو غيّري المدينة.');
           if(leg)leg.innerHTML='';
+          const cards=$('#oFinMonthCards'); if(cards) cards.innerHTML='';
         }
       }
       const byStudent={};
@@ -1639,7 +1707,8 @@ const OrphansSchoolProject = (function(){
     renderFinance_();
   }
   function pageGeo(){return `<section class="page" data-page="geo">
-    <div class="phead"><div><div class="eb">التوزّع الجغرافي</div><h1>توزّع الطلاب على المدن</h1></div></div>
+    <div class="phead"><div><div class="eb">التصنيفات</div><h1>توزّع الطلاب حسب الصف والحالة</h1></div>
+      <div class="meta">بديل أوضح من الخريطة — كل الطلاب في إدلب</div></div>
     <div id="oGeoScope"></div>
     <div class="toolbar">
       <select id="oGeoGender"><option value="">كل الأجناس</option><option value="ذكر">ذكر</option><option value="أنثى">أنثى</option><option value="unknown">غير محدد</option></select>
@@ -1647,7 +1716,8 @@ const OrphansSchoolProject = (function(){
       <select id="oGeoSponsor"><option value="">كل الحالات</option><option value="yes">مكفول</option><option value="no">غير مكفول</option></select>
       <select id="oGeoActive"><option value="">كل النشاط</option><option value="yes">نشط</option><option value="no">غير نشط</option></select>
     </div>
-    <div class="panel" style="padding:8px"><div id="oGeoMap" style="height:420px;border-radius:10px;overflow:hidden"></div></div>
+    <div class="kpis" id="oGeoKpis"></div>
+    <div class="grid g2" id="oGeoCharts"></div>
     <div class="panel"><div id="oGeoBody"></div></div></section>`;}
   function pageStudents(){return `<section class="page" data-page="students">
     <div class="phead"><div><div class="eb">السجل</div><h1>بطاقات الطلاب</h1></div></div>
@@ -1695,12 +1765,23 @@ const OrphansSchoolProject = (function(){
   /* ---- builders ---- */
   function initOverviewFilters(aK,aC){
     lastOvAllowK=aK||(()=>true); lastOvAllowC=aC||(()=>true);
-    const chk=$('#oOvActiveOnly'),from=$('#oOvFrom'),to=$('#oOvTo'),apply=$('#oOvApply'),reset=$('#oOvReset');
-    if(!chk)return;
-    chk.checked=ovActiveOnly;from.value=ovFrom;to.value=ovTo;
-    chk.onchange=()=>{ovActiveOnly=chk.checked;syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
-    apply.onclick=()=>{ovFrom=from.value||'';ovTo=to.value||'';syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
-    reset.onclick=()=>{ovFrom='';ovTo='';from.value='';to.value='';syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
+    const from=$('#oOvFrom'),to=$('#oOvTo'),apply=$('#oOvApply'),reset=$('#oOvReset');
+    const syncSeg=()=>{
+      $$('#oOvCohort .seg-btn').forEach(b=>b.classList.toggle('on', (b.dataset.v==='active')===ovActiveOnly));
+    };
+    syncSeg();
+    if(from) from.value=ovFrom; if(to) to.value=ovTo;
+    $$('#oOvCohort .seg-btn').forEach(btn=>{
+      btn.onclick=()=>{
+        ovActiveOnly=btn.dataset.v==='active';
+        syncSeg();
+        syncReportsPeriodControls_();
+        buildOverview(lastOvAllowK,lastOvAllowC);
+        refreshTabsFromOverviewScope_();
+      };
+    });
+    if(apply) apply.onclick=()=>{ovFrom=from.value||'';ovTo=to.value||'';syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
+    if(reset) reset.onclick=()=>{ovFrom='';ovTo='';if(from)from.value='';if(to)to.value='';syncReportsPeriodControls_();buildOverview(lastOvAllowK,lastOvAllowC);refreshTabsFromOverviewScope_();};
   }
   function syncReportsPeriodControls_(){
     const chk=$('#oRpActiveOnly'),from=$('#oRpFrom'),to=$('#oRpTo');
@@ -1710,10 +1791,10 @@ const OrphansSchoolProject = (function(){
   }
   function applyReportsPeriodToOverview_(){
     const chk=$('#oRpActiveOnly'),from=$('#oRpFrom'),to=$('#oRpTo');
-    ovActiveOnly=!!(chk&&chk.checked);
+    ovActiveOnly=chk?!!chk.checked:ovActiveOnly;
     ovFrom=(from&&from.value)||'';
     ovTo=(to&&to.value)||'';
-    if($('#oOvActiveOnly')) $('#oOvActiveOnly').checked=ovActiveOnly;
+    $$('#oOvCohort .seg-btn').forEach(b=>b.classList.toggle('on', (b.dataset.v==='active')===ovActiveOnly));
     if($('#oOvFrom')) $('#oOvFrom').value=ovFrom;
     if($('#oOvTo')) $('#oOvTo').value=ovTo;
     if($('#oOvKpis')) buildOverview(lastOvAllowK,lastOvAllowC);
@@ -1732,7 +1813,10 @@ const OrphansSchoolProject = (function(){
           <p>الأرقام أدناه مبنية على تاريخ أول/آخر كفالة مسجّلة لكل صندوق، وهي تقدير قائم على أحدث البيانات المتوفرة، وليست سجلاً تاريخيًا كاملاً لكل تغييرات الحالة. مبالغ التبرعات محسوبة بدقة من تواريخها الفعلية ضمن نفس الفترة.</p></div></div>`;
       }else if(mode==='active-only'){
         banner.innerHTML=`<div class="alertbar" style="background:var(--oksoft);border-inline-start:3px solid var(--ok)"><div class="tx">
-          <b>${ic('check')} عرض الطلاب النشطين فقط</b><p>كل الأرقام أدناه تخص الصناديق النشطة حاليًا على المنصة فقط.</p></div></div>`;
+          <b>${ic('check')} العرض الافتراضي: الطلاب النشطون</b><p>المؤشرات والمخططات أدناه للنشطين فقط. لاختيار كل المسجّلين اضغطي «إجمالي الطلاب».</p></div></div>`;
+      }else if(mode==='live'){
+        banner.innerHTML=`<div class="alertbar" style="background:var(--brandsoft);border-inline-start:3px solid var(--brand)"><div class="tx">
+          <b>${ic('users')} عرض إجمالي الطلاب</b><p>يشمل النشط وغير النشط. مخطط «حالة الصندوق» يظهر هنا فقط لأنه يصبح ذا معنى.</p></div></div>`;
       }else{ banner.innerHTML=''; }
     }
 
@@ -1747,9 +1831,12 @@ const OrphansSchoolProject = (function(){
     if(aK('females'))K.push(kpi('female','venus',a.females,'إناث'));
     if(aK('sponsored'))K.push(kpi('ok','heart',a.sponsored,'مكفولون','تغطية '+cov+'%'));
     if(aK('unsponsored'))K.push(kpi('bad','clock',a.unsponsored,'غير مكفولين'));
-    if(mode!=='historical'){
+    /* في وضع النشطين فقط مخطط/KPI «نشط/غير نشط» بلا معنى — نعرضه فقط عند إجمالي الطلاب */
+    if(mode!=='historical'&&!ovActiveOnly){
       if(aK('active'))K.push(kpi('ok','check',a.active,'نشط على المنصة'));
       if(aK('inactive'))K.push(kpi('warn','clock',a.inactive,'غير نشط'));
+    }else if(mode==='active-only'&&aK('total')){
+      K.push(kpi('ok','check',a.total,'ضمن العرض','من أصل '+(a.allTotal||DB.students.length)+' مسجّل'));
     }
     if(aK('avgProgress'))K.push(kpi('gold','percent',a.avgProgress,'متوسط نسبة الإنجاز %'));
     $('#oOvKpis').innerHTML=K.join('');countUp($('#oOvKpis'));
@@ -1805,29 +1892,37 @@ const OrphansSchoolProject = (function(){
     if(aC('gender')){const dsegs=[{label:'ذكور',value:a.males,color:cssv('--male')},{label:'إناث',value:a.females,color:cssv('--female')}];
       const dleg=[{label:'ذكور '+a.males,color:cssv('--male')},{label:'إناث '+a.females,color:cssv('--female')}];
       if(a.genderUnknown>0){dsegs.push({label:'غير محدد',value:a.genderUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+a.genderUnknown,color:cssv('--text3')});}
-      C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} طالب</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
-    if(aC('grade')){const gc=topCounts2(S,s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع</span></h3>${hbars(gc,{color:cssv('--gold')})}</div>`);}
+      C.push(`<div class="panel"><h3>التركيبة حسب الجنس <span class="tag">${a.total} ضمن النطاق</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
+    if(aC('grade')){const gc=topCounts2(S,s=>s.grade,10);C.push(`<div class="panel"><h3>الصف الدراسي <span class="tag">توزّع النطاق</span></h3>${gc.length?hbars(gc,{color:cssv('--gold')}):emptyState('cap','لا صفوف مسجّلة','')}</div>`);}
     if(aC('displaced')){
-      /* نفس مشكلة الجنس: "غير محدد" كانت تُحتسب "مقيم" افتراضياً. نفصلها الآن. */
       const disp=S.filter(s=>String(s.displaced).trim()==='نازح').length;
       const resident=S.filter(s=>String(s.displaced).trim()==='مقيم').length;
       const dUnknown=a.total-disp-resident;
       const dsegs=[{label:'نازح',value:disp,color:cssv('--warn')},{label:'مقيم',value:resident,color:cssv('--brand')}];
       const dleg=[{label:'نازح '+disp,color:cssv('--warn')},{label:'مقيم '+resident,color:cssv('--brand')}];
       if(dUnknown>0){dsegs.push({label:'غير محدد',value:dUnknown,color:cssv('--text3')});dleg.push({label:'غير محدد '+dUnknown,color:cssv('--text3')});}
-      C.push(`<div class="panel"><h3>نازح/مقيم <span class="tag">Ratio</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
-    if(mode!=='historical'&&aC('active')){
+      C.push(`<div class="panel"><h3>نازح / مقيم <span class="tag">ضمن النطاق</span></h3>${svgDonut(dsegs,{center:'طالب',centerVal:a.total})}${legend(dleg)}</div>`);}
+    if(aC('sponsored')||(ovActiveOnly&&aC('active'))){
+      const aseg=[{label:'مكفول',value:a.sponsored,color:cssv('--ok')},{label:'غير مكفول',value:a.unsponsored,color:cssv('--bad')}];
+      C.push(`<div class="panel"><h3>حالة الكفالة <span class="tag">ضمن النطاق الحالي</span></h3>${svgDonut(aseg,{center:'طالب',centerVal:a.total})}${legend([{label:'مكفول '+a.sponsored,color:cssv('--ok')},{label:'غير مكفول '+a.unsponsored,color:cssv('--bad')}])}</div>`);
+    }
+    if(!ovActiveOnly&&mode!=='historical'&&aC('active')){
       const aseg=[{label:'نشط',value:a.active,color:cssv('--ok')},{label:'غير نشط',value:a.inactive,color:cssv('--text3')}];
-      C.push(`<div class="panel"><h3>حالة الصندوق على المنصة <span class="tag">is_active</span></h3>${svgDonut(aseg,{center:'طالب',centerVal:a.total})}${legend([{label:'نشط '+a.active,color:cssv('--ok')},{label:'غير نشط '+a.inactive,color:cssv('--text3')}])}</div>`);}
-    $('#oOvCharts').innerHTML=C.join('');
+      C.push(`<div class="panel"><h3>حالة الصندوق على المنصة <span class="tag">عند عرض الإجمالي فقط</span></h3>${svgDonut(aseg,{center:'طالب',centerVal:a.total})}${legend([{label:'نشط '+a.active,color:cssv('--ok')},{label:'غير نشط '+a.inactive,color:cssv('--text3')}])}</div>`);
+    }
+    $('#oOvCharts').innerHTML=C.join('')||emptyState('trend','لا مخططات ضمن الصلاحيات','');
   }
   let renderGeo_=null;
   function buildGeo(){
     const base=scopedStudents_();
-    $('#oGeoGrade').innerHTML='<option value="">كل الصفوف</option>'+[...new Set(base.map(s=>s.grade))].filter(Boolean).sort().map(g=>`<option>${esc(g)}</option>`).join('');
+    const gradeEl=$('#oGeoGrade');
+    if(gradeEl) gradeEl.innerHTML='<option value="">كل الصفوف</option>'+[...new Set(base.map(s=>s.grade))].filter(Boolean).sort().map(g=>`<option>${esc(g)}</option>`).join('');
     updateScopeBanners_();
     renderGeo_=()=>{
-      const g=$('#oGeoGender').value,grade=$('#oGeoGrade').value,sp=$('#oGeoSponsor').value,act=$('#oGeoActive')?$('#oGeoActive').value:'';
+      const g=$('#oGeoGender')?$('#oGeoGender').value:'';
+      const grade=$('#oGeoGrade')?$('#oGeoGrade').value:'';
+      const sp=$('#oGeoSponsor')?$('#oGeoSponsor').value:'';
+      const act=$('#oGeoActive')?$('#oGeoActive').value:'';
       const list=scopedStudents_().filter(s=>{
         if(!genderMatch(s,g))return false;
         if(grade&&s.grade!==grade)return false;
@@ -1835,17 +1930,37 @@ const OrphansSchoolProject = (function(){
         if(!activeMatch(s,act))return false;
         return true;
       });
-      if(geoMap){geoMap.remove();geoMap=null;}
-      if(window.L){
-        const records=list.filter(s=>s.lat&&s.lng).map(s=>({lat:s.lat,lng:s.lng,gender:s.gender,name:s.name,city:s.city,onClick:()=>OrphansSchoolProject.openCard(s.box)}));
-        geoMap=renderGeoMap('oGeoMap',records);
+      const males=list.filter(isMale).length,females=list.filter(isFemale).length;
+      const sponsored=list.filter(isSponsored).length;
+      const active=list.filter(isActiveStudent).length;
+      const kpisEl=$('#oGeoKpis');
+      if(kpisEl){
+        kpisEl.innerHTML=
+          kpi('brand','child',list.length,'ضمن الفلاتر')+
+          kpi('male','mars',males,'ذكور')+
+          kpi('female','venus',females,'إناث')+
+          kpi('ok','heart',sponsored,'مكفولون')+
+          kpi('ok','check',active,'نشط');
+        countUp(kpisEl);
       }
-      const cc={};list.forEach(s=>{const c=s.city||'غير محدّد';cc[c]=cc[c]||{m:0,f:0,u:0};const gv=String(s.gender||'');gv.includes('ذكر')?cc[c].m++:gv.includes('أنث')?cc[c].f++:cc[c].u++;});
-      const rows=Object.entries(cc).sort((a,b)=>(b[1].m+b[1].f+b[1].u)-(a[1].m+a[1].f+a[1].u));const max=Math.max(1,...rows.map(([,v])=>v.m+v.f+v.u));
-      $('#oGeoBody').innerHTML=rows.length?`<div class="geo">${rows.map(([city,v])=>{const tot=v.m+v.f+v.u;
-        return `<div class="georow"><div class="cn">${ic('pin')} ${esc(city)}</div><div class="gt" style="width:${tot/max*100}%"><div class="gm" style="width:${tot?v.m/tot*100:0}%"></div><div class="gf" style="width:${tot?v.f/tot*100:0}%"></div><div class="gu" style="width:${tot?v.u/tot*100:0}%"></div></div><div class="gv num">${tot}</div></div>`;}).join('')}</div>${legend([{label:'ذكور',color:cssv('--male')},{label:'إناث',color:cssv('--female')},{label:'غير محدد',color:cssv('--text3')}])}`:emptyState('search','لا نتائج بهذه الفلاتر','');
+      const gradeC=topCounts2(list,s=>s.grade,12);
+      const healthC=topCounts2(list,s=>s.healthStatus,8);
+      const dispC=topCounts2(list,s=>s.displaced||'غير محدّد',6);
+      const charts=$('#oGeoCharts');
+      if(charts){
+        charts.innerHTML=
+          `<div class="panel"><h3>حسب الصف</h3>${gradeC.length?hbars(gradeC,{color:cssv('--gold')}):emptyState('cap','لا بيانات','')}</div>`+
+          `<div class="panel"><h3>حسب الحالة الصحية</h3>${healthC.length?hbars(healthC,{color:cssv('--brand')}):emptyState('heart','لا بيانات','')}</div>`+
+          `<div class="panel"><h3>نازح / مقيم</h3>${dispC.length?hbars(dispC,{color:cssv('--warn')}):emptyState('pin','لا بيانات','')}</div>`+
+          `<div class="panel"><h3>الكفالة</h3>${svgDonut([{label:'مكفول',value:sponsored,color:cssv('--ok')},{label:'غير مكفول',value:list.length-sponsored,color:cssv('--bad')}],{center:'طالب',centerVal:list.length})}${legend([{label:'مكفول '+sponsored,color:cssv('--ok')},{label:'غير مكفول '+(list.length-sponsored),color:cssv('--bad')}])}</div>`;
+      }
+      const body=$('#oGeoBody');
+      if(body){
+        body.innerHTML=`<div class="slabel">ملخّص سريع</div>
+          <p style="color:var(--text2);font-size:.9rem;line-height:1.6;margin:0">كل طلاب هذا المشروع مسجّلون في <b>إدلب</b>؛ الخريطة الجغرافية لا تضيف معلومة تشغيلية هنا، لذلك استُبدلت بتصنيفات الصف والصحة والكفالة التي تتغيّر مع الفلاتر أعلاه.</p>`;
+      }
     };
-    $('#oGeoGender').onchange=renderGeo_;$('#oGeoGrade').onchange=renderGeo_;$('#oGeoSponsor').onchange=renderGeo_;if($('#oGeoActive'))$('#oGeoActive').onchange=renderGeo_;
+    ['#oGeoGender','#oGeoGrade','#oGeoSponsor','#oGeoActive'].forEach(s=>{const el=$(s);if(el)el.onchange=renderGeo_;});
     renderGeo_();
   }
   function refillStudentFilterOptions_(){
@@ -2027,7 +2142,7 @@ const OrphansSchoolProject = (function(){
   function topCounts2(list,fn,limit){const m={};list.forEach(s=>{const k=fn(s)||'غير محدّد';m[k]=(m[k]||0)+1;});
     return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([label,value])=>({label,value}));}
 
-  return {setData,render,openCard,setPage:i=>{oPage=i;renderCards();},PAGES,ELEMENTS,agg};
+  return {setData,render,onPageShow,openCard,setPage:i=>{oPage=i;renderCards();},PAGES,ELEMENTS,agg};
 })();
 /* ✅ هذا المشروع مُفعَّل فعلياً بمصفوفة PROJECTS (id:'school'). إن ظهر "تعذّر الاتصال" بشارة المصدر،
    أعيدي نشر Apps Script الخاص بمدرسة ملهم للأيتام (Deploy → Manage deployments → Edit → Version: New version)
@@ -2448,9 +2563,10 @@ const Platform = (function(){
     $$('#projectHost .page').forEach(p=>p.classList.toggle('active',p.dataset.page===id));
     $$('#pageNav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
     window.scrollTo({top:0,behavior:'smooth'});
+    if(currentModule&&typeof currentModule.onPageShow==='function'){
+      try{currentModule.onPageShow(id);}catch(_){}
+    }
     if(id==='geo'&&window.__geoMapRef){
-      /* الخريطة تُبنى مخفية؛ بعد إظهار الصفحة فعلاً نطلب من Leaflet إعادة قياس
-         الحاوية وإعادة توسيط/تقريب العرض على الدبابيس، وإلا تبقى رمادية فارغة. */
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         try{window.__geoMapRef._refit&&window.__geoMapRef._refit();}catch(e){}
       }));
